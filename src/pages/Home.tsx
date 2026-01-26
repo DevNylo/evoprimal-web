@@ -15,7 +15,6 @@ export default function Home() {
 
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // Slides de fallback caso a API não retorne nada
   const localSlides = [
     {
       id: 999,
@@ -30,6 +29,13 @@ export default function Home() {
   const slides = banners.length > 0 ? banners : localSlides;
 
   useEffect(() => {
+    slides.forEach((slide) => {
+      const img = new Image();
+      img.src = slide.image;
+    });
+  }, [slides]);
+
+  useEffect(() => {
     if (slides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -40,32 +46,53 @@ export default function Home() {
   const scrollLeft = () => carouselRef.current?.scrollBy({ left: -300, behavior: "smooth" });
   const scrollRight = () => carouselRef.current?.scrollBy({ left: 300, behavior: "smooth" });
 
+  // --- LISTA DE CATEGORIAS ---
+  // ATENÇÃO: Para mudar as imagens, salve seus arquivos novos dentro da pasta '/public/categories/'
+  // e atualize os caminhos 'img' abaixo.
   const categories = [
-    { title: "WHEY PROTEIN", slug: "whey-protein", subtitle: "Ganho de Massa", img: "/products/whey-dux.png" },
-    { title: "CREATINA", slug: "creatina", subtitle: "Força Pura", img: "/products/creatina-max.png" },
-    { title: "PRÉ-TREINO", slug: "pre-treino", subtitle: "Energia", img: "/products/pre-insane.png" },
-    { title: "VITAMINAS", slug: "vitaminas", subtitle: "Saúde", img: "/products/multi-evo.png" },
+    { 
+      title: "WHEY PROTEIN", 
+      slug: "whey-protein", 
+      subtitle: "Ganho de Massa", 
+      img: "/placeholder.png" // Mude para: "/categories/sua-imagem-whey.png"
+    },
+    { 
+      title: "CREATINA", 
+      slug: "creatina", 
+      subtitle: "Força Pura", 
+      img: "/placeholder.png" // Mude para: "/categories/sua-imagem-creatina.png"
+    },
+    { 
+      title: "PRÉ-TREINO", 
+      slug: "pre-treino", 
+      subtitle: "Energia", 
+      img: "/placeholder.png" // Mude para: "/categories/sua-imagem-pretreino.png"
+    },
+    { 
+      title: "VITAMINAS", 
+      slug: "vitaminas", 
+      subtitle: "Saúde", 
+      img: "/placeholder.png" // Mude para: "/categories/sua-imagem-vitaminas.png"
+    },
   ];
 
   return (
     <div className="min-h-screen bg-transparent text-white font-sans selection:bg-red-600 selection:text-white">
       
       {/* HERO SECTION */}
-      <section className="pt-40 pb-20 px-6 max-w-[1280px] mx-auto border-b border-white/5">
+      <section className="pt-32 lg:pt-44 px-6 max-w-[1280px] mx-auto border-b border-white/5 h-[650px] lg:h-[750px] flex items-center relative overflow-hidden">
         {loading && banners.length === 0 ? (
-           <div className="h-[600px] flex items-center justify-center border border-white/5 rounded-2xl bg-white/5 animate-pulse">
+           <div className="w-full h-full flex items-center justify-center border border-white/5 rounded-2xl bg-white/5 animate-pulse">
               <Loader2 className="animate-spin text-red-600" size={40} />
            </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center h-[600px]">
-            {/* AJUSTE 1: Adicionado 'max-w-2xl lg:max-w-none' para limitar a largura do texto em telas médias.
-               AJUSTE 3: Mudado 'z-10' para 'z-20' para garantir que o texto fique sobre a imagem.
-            */}
-            <div className="space-y-6 animate-fade-in-right flex flex-col justify-center h-full relative z-20 max-w-2xl lg:max-w-none mx-auto lg:mx-0">
-               <div className="flex flex-col justify-end pb-4">
-                 {/* AJUSTE 2: Reduzido o tamanho da fonte de 'md:text-7xl' para 'md:text-6xl' 
-                    e adicionado 'xl:text-7xl' para telas muito grandes.
-                 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center w-full h-full">
+            
+            {/* COLUNA DE TEXTO */}
+            <div className="animate-fade-in-right flex flex-col justify-start lg:justify-center relative z-20 max-w-2xl lg:max-w-none mx-auto lg:mx-0 text-center lg:text-left h-full lg:h-auto pt-10 lg:pt-0">
+               
+               {/* TÍTULO FIXO */}
+               <div className="flex flex-col justify-end h-[180px] lg:h-[240px] mb-6">
                  <h1 className="text-5xl md:text-6xl xl:text-7xl font-black uppercase tracking-tighter leading-[0.9] text-zinc-100">
                    {slides[currentSlide].title} <br />
                    <span className="text-red-600 transition-all duration-500">{slides[currentSlide].highlight}</span> <br />
@@ -73,19 +100,21 @@ export default function Home() {
                  </h1>
                </div>
                
-               <div className="flex items-start">
-                 <p className="text-zinc-400 text-lg border-l-4 border-red-600 pl-4 max-w-md line-clamp-3">
+               {/* DESCRIÇÃO FIXA */}
+               <div className="flex items-start justify-center lg:justify-start h-[100px]">
+                 <p className="text-zinc-400 text-lg border-l-4 border-red-600 pl-4 max-w-md line-clamp-3 text-left">
                    {slides[currentSlide].desc}
                  </p>
                </div>
                
-               <div className="flex gap-4 pt-4 items-start">
-                  <Link to="/ofertas" className="bg-red-600 hover:bg-red-500 text-white px-8 py-4 rounded font-black uppercase tracking-widest shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:-translate-y-1">
+               {/* BOTÃO */}
+               <div className="flex flex-col sm:flex-row gap-4 pt-4 items-center justify-center lg:justify-start">
+                  <Link to="/ofertas" className="bg-red-600 hover:bg-red-500 text-white px-8 py-4 rounded font-black uppercase tracking-widest shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:-translate-y-1 w-full sm:w-auto text-center">
                     Ver Ofertas
                   </Link>
                   
                   {slides.length > 1 && (
-                    <div className="flex gap-2 items-center ml-4 mt-4">
+                    <div className="flex gap-2 items-center mt-4 sm:mt-0 lg:ml-4">
                        {slides.map((_, idx) => (
                          <div 
                            key={idx} 
@@ -98,13 +127,15 @@ export default function Home() {
                </div>
             </div>
             
-            <div className="relative h-full w-full flex items-center justify-center overflow-hidden">
-                <div className="absolute w-[60%] h-[60%] bg-red-600/20 blur-[100px] rounded-full animate-pulse"></div>
+            {/* COLUNA DA IMAGEM */}
+            <div className="relative w-full h-full flex items-center justify-center">
+                <div className="absolute w-[60%] h-[60%] bg-red-600/20 blur-[100px] rounded-full animate-pulse z-0"></div>
+                
                 <img 
                   key={currentSlide} 
                   src={slides[currentSlide].image} 
                   alt="Hero Banner" 
-                  className="absolute inset-0 m-auto w-full h-[90%] object-contain drop-shadow-2xl animate-in fade-in zoom-in duration-700 z-10"
+                  className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl animate-in fade-in zoom-in duration-700 z-10"
                   onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.png"; }}
                 />
             </div>
