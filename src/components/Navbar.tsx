@@ -9,7 +9,6 @@ export default function Navbar() {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
 
-  // LISTA DE CATEGORIAS DO DROPDOWN
   const productCategories = [
     { name: "Whey Protein", slug: "whey-protein" },
     { name: "Creatina", slug: "creatina" },
@@ -37,7 +36,7 @@ export default function Navbar() {
     >
       <div className="max-w-[1280px] mx-auto px-6 h-full flex items-center justify-between gap-4">
 
-        {/* 1. LOGO - CLICAR LEVA PARA A HOME */}
+        {/* LOGO */}
         <Link to="/" className="relative flex items-center shrink-0 z-20 group cursor-pointer">
           <img
             src="/logo.png"
@@ -46,11 +45,9 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* 2. MENU CENTRAL (COM DROPDOWN) */}
+        {/* MENU */}
         {!isSearchOpen && (
           <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 h-full">
-            
-            {/* BOTÃO INÍCIO - LEVA PARA A HOME */}
             <Link 
               to="/" 
               className="text-sm font-black uppercase tracking-widest text-zinc-400 hover:text-red-600 transition-colors"
@@ -58,13 +55,11 @@ export default function Navbar() {
               Início
             </Link>
 
-            {/* DROPDOWN: CATEGORIAS */}
             <div className="relative group h-full flex items-center">
               <button className="flex items-center gap-1 text-sm font-black uppercase tracking-widest text-zinc-400 group-hover:text-red-600 transition-colors py-8 cursor-default">
                 Produtos <ChevronDown size={14} className="group-hover:rotate-180 transition-transform duration-300" />
               </button>
 
-              {/* MENU FLUTUANTE */}
               <div className="absolute top-[calc(100%-1px)] left-1/2 -translate-x-1/2 w-56 bg-[#0a0a0a] border border-white/10 rounded-b-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 flex flex-col overflow-hidden">
                  {productCategories.map((cat) => (
                    <Link 
@@ -78,7 +73,6 @@ export default function Navbar() {
               </div>
             </div>
 
-            {/* OUTROS LINKS */}
             <Link to="/ofertas" className="text-sm font-black uppercase tracking-widest text-zinc-400 hover:text-red-600 transition-colors">
               Ofertas
             </Link>
@@ -86,14 +80,11 @@ export default function Navbar() {
             <Link to="/contato" className="text-sm font-black uppercase tracking-widest text-zinc-400 hover:text-red-600 transition-colors">
               Contato
             </Link>
-
           </div>
         )}
 
-        {/* 3. AÇÕES (BUSCA + CARRINHO) */}
+        {/* AÇÕES */}
         <div className="flex items-center gap-4 md:gap-6 justify-end flex-1">
-
-          {/* BUSCA */}
           <div
             className={`
               flex items-center rounded-full transition-all duration-300 border
@@ -135,7 +126,6 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* CARRINHO */}
           <div onClick={openCart} className="relative cursor-pointer group">
             <div className="
               p-3 rounded-full
@@ -148,7 +138,7 @@ export default function Navbar() {
             {cartCount > 0 && (
               <span className="
                 absolute -top-1 -right-1
-                bg-white text-black
+                bg-red-600 text-white
                 text-[10px] font-black
                 w-5 h-5 flex items-center justify-center
                 rounded-full
@@ -158,7 +148,6 @@ export default function Navbar() {
               </span>
             )}
           </div>
-
         </div>
       </div>
     </nav>

@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, ShoppingCart, ShoppingBag, Loader2 } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Loader2, Frown } from "lucide-react";
 import Footer from "../components/Footer";
 import { useStore } from "../context/StoreContext";
 import { useCart } from "../context/CartContext";
@@ -21,33 +21,34 @@ export default function CategoryPage() {
   const title = categoryTitles[slug as string] || "Produtos";
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans">
-      {/* Navbar está no App.tsx */}
-
-      <main className="pt-32 pb-20 px-6 max-w-[1280px] mx-auto">
+    <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col">
+      <main className="flex-1 pt-40 pb-20 px-6 max-w-[1280px] mx-auto w-full">
         
         <div className="mb-12 border-b border-white/5 pb-6">
-           <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-green-500 mb-6 transition-colors text-[10px] font-bold uppercase tracking-[0.2em] group !no-underline">
+           <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-red-600 mb-6 transition-colors text-[10px] font-bold uppercase tracking-[0.2em] group">
               <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" /> 
               Voltar
            </Link>
            <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-white">
-             {title}
+             {title} <span className="text-red-600">.</span>
            </h1>
-           <p className="text-zinc-400 mt-2">
-             {loading ? "Carregando..." : `Mostrando ${categoryProducts.length} resultados de alta performance.`}
+           <p className="text-zinc-400 mt-2 text-sm">
+             Explorando a categoria de alta performance.
            </p>
         </div>
 
         {loading ? (
            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <Loader2 size={40} className="animate-spin text-green-600" />
+              <Loader2 size={40} className="animate-spin text-red-600" />
            </div>
         ) : categoryProducts.length === 0 ? (
-          <div className="text-center py-20 bg-white/5 rounded-xl border border-white/10">
-            <ShoppingBag size={48} className="mx-auto text-zinc-600 mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">Nenhum produto encontrado</h2>
-            <p className="text-zinc-500">Esta categoria ainda está vazia no sistema.</p>
+          <div className="text-center py-20 bg-white/5 rounded-xl border border-white/10 flex flex-col items-center">
+            <Frown size={48} className="text-zinc-600 mb-4" />
+            <h2 className="text-xl font-bold text-white mb-2">Categoria Vazia</h2>
+            <p className="text-zinc-500 text-sm">Ainda não temos produtos cadastrados aqui.</p>
+            <Link to="/" className="mt-6 px-6 py-3 bg-zinc-800 hover:bg-red-600 text-white text-xs font-bold uppercase tracking-widest rounded transition-all">
+                Ver todos os produtos
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -55,12 +56,15 @@ export default function CategoryPage() {
                <Link 
                   key={product.id} 
                   to={`/produto/${product.id}`} 
-                  // CORREÇÃO AQUI TAMBÉM: !no-underline no link principal
-                  className="bg-[#0a0a0a]/80 border border-white/5 hover:border-green-600/50 rounded-xl overflow-hidden group transition-all duration-300 flex flex-col hover:shadow-lg hover:shadow-green-900/10 backdrop-blur-sm cursor-pointer !no-underline"
+                  className="bg-[#0a0a0a]/80 border border-white/5 hover:border-red-600/50 rounded-xl overflow-hidden group transition-all duration-300 flex flex-col hover:shadow-lg hover:shadow-red-900/10 backdrop-blur-sm cursor-pointer !no-underline"
                >
                   <div className="h-64 relative bg-[#0e0e0e]/50 flex items-center justify-center p-6 border-b border-white/5 group-hover:border-zinc-800 transition-colors">
-                     {product.oldPrice && <span className="absolute top-4 left-4 bg-green-600 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider z-20">Oferta</span>}
-                     <img src={product.image} alt={product.name} className="object-contain h-full w-full p-4 group-hover:scale-110 transition-transform duration-500" />
+                     {product.oldPrice && <span className="absolute top-4 left-4 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider z-20">Oferta</span>}
+                     <img 
+                          src={product.image} 
+                          alt={product.name} 
+                          className="object-contain h-full w-full p-4 group-hover:scale-110 transition-transform duration-500" 
+                     />
                   </div>
                   
                   <div className="p-6 flex flex-col flex-1">
@@ -81,7 +85,7 @@ export default function CategoryPage() {
                              e.preventDefault();
                              addToCart(product);
                           }}
-                          className="w-10 h-10 bg-zinc-800 hover:bg-green-600 text-white rounded flex items-center justify-center transition-all shadow-lg hover:shadow-green-500/20 z-20"
+                          className="w-10 h-10 bg-zinc-800 hover:bg-red-600 text-white rounded flex items-center justify-center transition-all shadow-lg hover:shadow-red-500/20 z-20"
                         >
                           <ShoppingCart size={18} />
                         </button>
