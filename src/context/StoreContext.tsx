@@ -1,11 +1,10 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
-// --- URL BASE DO STRAPI (Usando IP para evitar conflitos de localhost) ---
-const STRAPI_URL = "http://127.0.0.1:1337";
+// --- CORREÇÃO 1: Usar Variável de Ambiente ---
+// Se existir a variável da Vercel (Render), usa ela. Se não, usa localhost.
+const STRAPI_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:1337";
 
 // --- TIPAGENS ---
-
-// Tipo para os Produtos (Vendáveis)
 export interface Product {
   id: number;
   documentId: string;
@@ -16,20 +15,18 @@ export interface Product {
   category: string;
   brand: string;
   image: string;
-  isFeatured: boolean; // Mapeado de 'em_destaque'
+  isFeatured: boolean;
 }
 
-// Tipo para os Banners (Marketing)
 export interface HeroBanner {
   id: number;
   title: string;
-  highlight: string; // A parte verde do texto
+  highlight: string;
   sub: string;
   desc: string;
   image: string;
 }
 
-// O que o contexto vai entregar para o site
 interface StoreContextType {
   products: Product[];
   banners: HeroBanner[];
@@ -43,13 +40,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [banners, setBanners] = useState<HeroBanner[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Helper para corrigir URLs de imagem (Cloudinary vs Local)
+  const getImageUrl = (url: string) => {
+    if (!url) return "/placeholder.png";
+    // CORREÇÃO 2: Se já for um link completo (Cloudinary), não mexe.
+    if (url.startsWith("http")) return url;
+    // Se for relativo (Upload Local), adiciona a URL da API.
+    return `${STRAPI_URL}${url}`;
+  };
+
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
+        console.log("Buscando dados em:", STRAPI_URL); // Debug para você ver no console
 
-        // Dispara as duas buscas ao mesmo tempo (Paralelismo = Performance)
-        // Usando 127.0.0.1 para estabilidade de conexão
         const [productRes, bannerRes] = await Promise.all([
           fetch(`${STRAPI_URL}/api/produtos?populate=*`), 
           fetch(`${STRAPI_URL}/api/hero-banners?populate=*`)
@@ -63,18 +68,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const formattedProducts = productData.data.map((item: any) => ({
             id: item.id,
             documentId: item.documentId,
-            name: item.nome || "Produto Sem Nome", // Strapi: nome
-            price: Number(item.preco) || 0,        // Strapi: preco
-            oldPrice: item.preco_antigo ? Number(item.preco_antigo) : null, // Strapi: preco_antigo
-            description: item.descricao || "",     // Strapi: descricao
-            category: item.categoria || "outros",  // Strapi: categoria
-            brand: item.marca || "EVO PRIMAL",     // Strapi: marca
-            isFeatured: item.em_destaque || false, // Strapi: em_destaque (Boolean)
-            
-            // Tratamento da imagem
-            image: item.imagem?.url 
-              ? `${STRAPI_URL}${item.imagem.url}` 
-              : "/placeholder.png"
+            name: item.nome || "Produto Sem Nome",
+            price: Number(item.preco) || 0,
+            oldPrice: item.preco_antigo ? Number(item.preco_antigo) : null,
+            description: item.descricao || "",
+            category: item.categoria || "outros",
+            brand: item.marca || "EVO PRIMAL",
+            isFeatured: item.em_destaque || false,
+            // Usa o Helper de imagem corrigido
+            image: getImageUrl(item.imagem?.url)
           }));
           setProducts(formattedProducts);
         }
@@ -87,11 +89,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             highlight: item.destaque_verde || "",
             sub: item.subtitulo || "",
             desc: item.descricao || "",
-            
-            // Tratamento da imagem do banner
-            image: item.imagem?.url 
-              ? `${STRAPI_URL}${item.imagem.url}` 
-              : "/banner-placeholder.png"
+            // Usa o Helper de imagem corrigido
+            image: getImageUrl(item.imagem?.url)
           }));
           setBanners(formattedBanners);
         }
