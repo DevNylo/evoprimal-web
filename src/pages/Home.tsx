@@ -15,14 +15,15 @@ export default function Home() {
 
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  // Slides de fallback caso a API não retorne nada
   const localSlides = [
     {
       id: 999,
       title: "POTÊNCIA PURA",
       highlight: "PARA SEU TREINO",
       sub: "RESULTADOS REAIS",
-      desc: "Acesse o painel do Strapi para cadastrar seus banners personalizados.",
-      image: "/banners/hero-1.png" 
+      desc: "Cadastre seus banners no painel do Strapi para que eles apareçam aqui.",
+      image: "/placeholder.png" 
     }
   ];
 
@@ -49,7 +50,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-transparent text-white font-sans selection:bg-red-600 selection:text-white">
       
-      {/* HERO SECTION - Pt-40 mantido para segurança */}
+      {/* HERO SECTION */}
       <section className="pt-40 pb-20 px-6 max-w-[1280px] mx-auto border-b border-white/5">
         {loading && banners.length === 0 ? (
            <div className="h-[600px] flex items-center justify-center border border-white/5 rounded-2xl bg-white/5 animate-pulse">
@@ -57,25 +58,31 @@ export default function Home() {
            </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center h-[600px]">
-            <div className="space-y-6 animate-fade-in-right flex flex-col justify-center h-full relative z-10">
-               <div className="h-[300px] flex flex-col justify-end pb-4">
-                 <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-[0.9] text-zinc-100">
+            {/* AJUSTE 1: Adicionado 'max-w-2xl lg:max-w-none' para limitar a largura do texto em telas médias.
+               AJUSTE 3: Mudado 'z-10' para 'z-20' para garantir que o texto fique sobre a imagem.
+            */}
+            <div className="space-y-6 animate-fade-in-right flex flex-col justify-center h-full relative z-20 max-w-2xl lg:max-w-none mx-auto lg:mx-0">
+               <div className="flex flex-col justify-end pb-4">
+                 {/* AJUSTE 2: Reduzido o tamanho da fonte de 'md:text-7xl' para 'md:text-6xl' 
+                    e adicionado 'xl:text-7xl' para telas muito grandes.
+                 */}
+                 <h1 className="text-5xl md:text-6xl xl:text-7xl font-black uppercase tracking-tighter leading-[0.9] text-zinc-100">
                    {slides[currentSlide].title} <br />
                    <span className="text-red-600 transition-all duration-500">{slides[currentSlide].highlight}</span> <br />
                    {slides[currentSlide].sub}
                  </h1>
                </div>
                
-               <div className="h-[60px] flex items-start">
-                 <p className="text-zinc-400 text-lg border-l-4 border-red-600 pl-4 max-w-md line-clamp-2">
+               <div className="flex items-start">
+                 <p className="text-zinc-400 text-lg border-l-4 border-red-600 pl-4 max-w-md line-clamp-3">
                    {slides[currentSlide].desc}
                  </p>
                </div>
                
-               <div className="flex gap-4 pt-4 h-[80px] items-start">
-                  <button className="bg-red-600 hover:bg-red-500 text-white px-8 py-4 rounded font-black uppercase tracking-widest shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:-translate-y-1">
+               <div className="flex gap-4 pt-4 items-start">
+                  <Link to="/ofertas" className="bg-red-600 hover:bg-red-500 text-white px-8 py-4 rounded font-black uppercase tracking-widest shadow-[0_0_20px_rgba(220,38,38,0.3)] transition-all hover:-translate-y-1">
                     Ver Ofertas
-                  </button>
+                  </Link>
                   
                   {slides.length > 1 && (
                     <div className="flex gap-2 items-center ml-4 mt-4">
@@ -137,9 +144,9 @@ export default function Home() {
                <p className="text-red-600 font-bold uppercase tracking-widest text-xs mb-2">Loja Oficial</p>
                <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Destaques</h2>
             </div>
-            <div className="text-zinc-500 font-bold uppercase text-xs tracking-widest flex items-center gap-2 group cursor-pointer hover:text-white transition-colors">
+            <Link to="/ofertas" className="text-zinc-500 font-bold uppercase text-xs tracking-widest flex items-center gap-2 group cursor-pointer hover:text-white transition-colors !no-underline">
                Ver Ofertas <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-            </div>
+            </Link>
          </div>
 
          {loading ? (
@@ -177,10 +184,6 @@ export default function Home() {
                         <h3 className="text-white font-bold text-sm uppercase leading-relaxed mb-2 line-clamp-2 min-h-[2.5rem] group-hover:underline decoration-white underline-offset-4 decoration-1">
                             {product.name}
                         </h3>
-
-                        <p className="text-zinc-400 text-xs mb-4 line-clamp-2 h-9 overflow-hidden !no-underline">
-                            {product.description}
-                        </p>
                         
                         <div className="mt-auto pt-4 flex justify-between items-center border-none !no-underline">
                            <div>
