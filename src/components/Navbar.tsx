@@ -1,155 +1,145 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Search, ShoppingBag, X, ChevronDown } from "lucide-react"; 
+import { useState, useEffect, useRef } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ShoppingCart, Search, Menu, X, ChevronDown } from "lucide-react";
 import { useCart } from "../context/CartContext";
 
 export default function Navbar() {
-  const { cartCount, openCart } = useCart();
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const { cart, openCart } = useCart();
+  const location = useLocation();
   const navigate = useNavigate();
 
-  const productCategories = [
-    { name: "Whey Protein", slug: "whey-protein" },
-    { name: "Creatina", slug: "creatina" },
-    { name: "Pré-Treino", slug: "pre-treino" },
-    { name: "Vitaminas", slug: "vitaminas" },
-  ];
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (query.trim()) {
-      navigate(`/categoria/busca?q=${query}`);
-      setIsSearchOpen(false);
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
     }
-  }
+  }, [showSearch]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      navigate(`/categoria/busca?q=${searchTerm}`);
+      setShowSearch(false);
+      setSearchTerm("");
+    }
+  };
+
+  const getLinkClass = (path: string, isDropdown = false) => {
+    const isActive = location.pathname === path;
+    if (isDropdown) {
+      return isActive 
+        ? "block px-4 py-2 text-xs font-bold text-red-600 bg-white/5 rounded uppercase" 
+        : "block px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 rounded uppercase";
+    }
+    return isActive
+      ? "text-xs font-bold uppercase tracking-widest text-red-600 transition-all"
+      : "text-xs font-bold uppercase tracking-widest text-zinc-300 hover:text-white hover:text-shadow-glow transition-all";
+  };
+
+  const isProductSectionActive = location.pathname.includes("/categoria");
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <nav
-      className="
-        fixed top-0 left-0 w-full z-50
-        h-24
-        bg-[#050505]/90 backdrop-blur-md
-        border-b border-white/5
-        shadow-lg shadow-black/50
-      "
-    >
-      <div className="max-w-[1280px] mx-auto px-6 h-full flex items-center justify-between gap-4">
+    <>
+      <header
+        className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 border-b border-white/5
+        ${
+          isScrolled
+            ? "bg-black/80 backdrop-blur-md py-3 shadow-lg" // ROLANDO: Mais escuro e fosco
+            : "bg-black/20 backdrop-blur-sm py-5" // TOPO: Mais transparente, mas ainda fosco
+        }`}
+      >
+        <div className="max-w-[1400px] mx-auto px-6 flex items-center justify-between">
+          
+          {/* LOGO */}
+          <Link to="/" className="relative z-50 flex-shrink-0">
+            <img 
+              src="/logo.png" 
+              alt="EVOPRIMAL" 
+              className="h-14 md:h-16 object-contain hover:opacity-80 transition-opacity drop-shadow-lg" 
+            />
+          </Link>
 
-        {/* LOGO */}
-        <Link to="/" className="relative flex items-center shrink-0 z-20 group cursor-pointer">
-          <img
-            src="/logo.png"
-            alt="EVOPRIMAL Logo"
-            className="h-12 md:h-20 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(220,38,38,0.2)] group-hover:drop-shadow-[0_0_25px_rgba(220,38,38,0.4)] transition-all duration-500"
-          />
-        </Link>
-
-        {/* MENU */}
-        {!isSearchOpen && (
-          <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2 h-full">
-            <Link 
-              to="/" 
-              className="text-sm font-black uppercase tracking-widest text-zinc-400 hover:text-red-600 transition-colors"
-            >
-              Início
-            </Link>
-
-            <div className="relative group h-full flex items-center">
-              <button className="flex items-center gap-1 text-sm font-black uppercase tracking-widest text-zinc-400 group-hover:text-red-600 transition-colors py-8 cursor-default">
-                Produtos <ChevronDown size={14} className="group-hover:rotate-180 transition-transform duration-300" />
-              </button>
-
-              <div className="absolute top-[calc(100%-1px)] left-1/2 -translate-x-1/2 w-56 bg-[#0a0a0a] border border-white/10 rounded-b-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 flex flex-col overflow-hidden">
-                 {productCategories.map((cat) => (
-                   <Link 
-                     key={cat.slug} 
-                     to={`/categoria/${cat.slug}`}
-                     className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white hover:bg-red-600/10 hover:border-l-4 border-red-600 transition-all block border-l-4 border-transparent"
-                   >
-                     {cat.name}
-                   </Link>
-                 ))}
-              </div>
+          {/* DESKTOP MENU */}
+          <nav className="hidden lg:flex items-center gap-8 relative z-50">
+            <Link to="/" className={getLinkClass("/")}>Início</Link>
+            
+            <div className="group relative h-full flex items-center">
+                <button className={`flex items-center gap-1 text-xs font-bold uppercase tracking-widest transition-all group-hover:text-red-600 ${isProductSectionActive ? "text-red-600" : "text-zinc-300 hover:text-white"}`}>
+                  Produtos <ChevronDown size={14} />
+                </button>
+                <div className="absolute top-full left-0 mt-0 pt-4 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform group-hover:translate-y-0 translate-y-2 flex flex-col">
+                   <div className="bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-2 flex flex-col gap-1">
+                     <Link to="/categoria/whey-protein" className={getLinkClass("/categoria/whey-protein", true)}>Whey Protein</Link>
+                     <Link to="/categoria/creatina" className={getLinkClass("/categoria/creatina", true)}>Creatina</Link>
+                     <Link to="/categoria/pre-treino" className={getLinkClass("/categoria/pre-treino", true)}>Pré-Treino</Link>
+                     <Link to="/categoria/vitaminas" className={getLinkClass("/categoria/vitaminas", true)}>Vitaminas</Link>
+                   </div>
+                </div>
             </div>
 
-            <Link to="/ofertas" className="text-sm font-black uppercase tracking-widest text-zinc-400 hover:text-red-600 transition-colors">
-              Ofertas
-            </Link>
-            
-            <Link to="/contato" className="text-sm font-black uppercase tracking-widest text-zinc-400 hover:text-red-600 transition-colors">
-              Contato
-            </Link>
-          </div>
-        )}
+            <Link to="/ofertas" className={getLinkClass("/ofertas")}>Ofertas</Link>
+            <Link to="/contato" className={getLinkClass("/contato")}>Contato</Link>
+          </nav>
 
-        {/* AÇÕES */}
-        <div className="flex items-center gap-4 md:gap-6 justify-end flex-1">
-          <div
-            className={`
-              flex items-center rounded-full transition-all duration-300 border
-              ${isSearchOpen
-                ? "w-full md:w-64 px-4 py-2 bg-zinc-900/50 border-white/10"
-                : "w-12 h-12 justify-center border-transparent"}
-            `}
-          >
-            {isSearchOpen ? (
-              <form onSubmit={handleSearch} className="flex items-center w-full">
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="BUSCAR..."
-                  className="
-                    bg-transparent border-none outline-none
-                    text-white text-sm w-full
-                    placeholder:text-zinc-600 uppercase font-bold tracking-wide
-                  "
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onBlur={() => !query && setIsSearchOpen(false)}
+          {/* ICONS */}
+          <div className="flex items-center gap-3 relative z-50">
+            {showSearch ? (
+              <form onSubmit={handleSearchSubmit} className="relative animate-in fade-in slide-in-from-right-4 duration-300">
+                <input 
+                  ref={searchInputRef}
+                  type="text" 
+                  placeholder="Buscar..." 
+                  className="bg-black/60 backdrop-blur-md text-white text-sm border border-white/20 rounded-full pl-4 pr-8 py-2 w-40 md:w-60 focus:outline-none focus:border-red-600"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onBlur={() => !searchTerm && setShowSearch(false)}
                 />
-                <button
-                  type="button"
-                  onClick={() => setIsSearchOpen(false)}
-                  className="text-zinc-500 hover:text-white ml-2"
-                >
-                  <X size={16} />
+                <button type="button" onClick={() => setShowSearch(false)} className="absolute right-2 top-2 text-zinc-400 hover:text-white">
+                  <X size={14} />
                 </button>
               </form>
             ) : (
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                className="text-zinc-400 hover:text-white transition-colors"
-              >
-                <Search size={24} />
+              <button onClick={() => setShowSearch(true)} className="text-zinc-300 hover:text-white p-2 transition-colors drop-shadow-md">
+                 <Search size={22} />
               </button>
             )}
-          </div>
 
-          <div onClick={openCart} className="relative cursor-pointer group">
-            <div className="
-              p-3 rounded-full
-              bg-zinc-900/50 border border-white/5
-              group-hover:bg-red-600 group-hover:border-red-600 transition-all duration-300
-            ">
-              <ShoppingBag size={24} className="text-zinc-400 group-hover:text-white transition-colors" />
-            </div>
+            <button onClick={openCart} className="relative group transition-colors p-2 text-zinc-300 hover:text-white drop-shadow-md">
+              <ShoppingCart size={22} />
+              {cart.length > 0 && (
+                <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full animate-bounce-short">
+                  {cart.length}
+                </span>
+              )}
+            </button>
 
-            {cartCount > 0 && (
-              <span className="
-                absolute -top-1 -right-1
-                bg-red-600 text-white
-                text-[10px] font-black
-                w-5 h-5 flex items-center justify-center
-                rounded-full
-                border-2 border-[#050505] shadow-lg
-              ">
-                {cartCount}
-              </span>
-            )}
+            <button className="lg:hidden text-zinc-300 hover:text-white p-2 drop-shadow-md" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+              {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+            </button>
           </div>
         </div>
+      </header>
+
+      {/* MOBILE MENU */}
+      <div className={`fixed inset-0 bg-black/95 backdrop-blur-xl z-40 flex flex-col items-center justify-center gap-8 transition-all duration-500 lg:hidden ${isMobileMenuOpen ? "opacity-100 visible pointer-events-auto" : "opacity-0 invisible pointer-events-none"}`}>
+         <Link to="/" className="text-2xl font-black uppercase text-white" onClick={() => setIsMobileMenuOpen(false)}>Início</Link>
+         <Link to="/categoria/whey-protein" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Whey Protein</Link>
+         <Link to="/categoria/creatina" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Creatina</Link>
+         <Link to="/ofertas" className="text-2xl font-black uppercase text-red-600" onClick={() => setIsMobileMenuOpen(false)}>Ofertas</Link>
       </div>
-    </nav>
+    </>
   );
 }
