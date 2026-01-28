@@ -1,116 +1,194 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, ShieldCheck, Star, Truck, ShoppingBag, Loader2 } from "lucide-react";
-import Footer from "../components/Footer";
-import { useCart } from "../context/CartContext";
+import { useEffect, useState } from "react";
 import { useStore } from "../context/StoreContext";
+import { useCart } from "../context/CartContext";
+import { ShoppingCart, ChevronLeft, Star, Truck, ShieldCheck, CreditCard, QrCode, ArrowRight } from "lucide-react";
+import Footer from "../components/Footer";
 
 export default function ProductPage() {
   const { id } = useParams();
-  const { addToCart } = useCart();
-  const { products, loading } = useStore();
+  const { products } = useStore();
+  const { addToCart, openCart } = useCart();
+  const [product, setProduct] = useState<any>(null);
+  const [selectedImage, setSelectedImage] = useState(0);
 
-  const product = products.find((p) => p.id === Number(id));
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-white gap-4">
-        <Loader2 size={40} className="animate-spin text-red-600" />
-        <p className="uppercase font-bold tracking-widest text-xs">Carregando detalhes...</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    // Simula a busca do produto pelo ID
+    const found = products.find((p) => p.id === Number(id));
+    setProduct(found);
+    // Reseta a imagem selecionada ao trocar de produto
+    setSelectedImage(0);
+    // Rola para o topo
+    window.scrollTo(0, 0);
+  }, [id, products]);
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center">
-        <h1 className="text-3xl font-black uppercase mb-4">Produto não encontrado</h1>
-        <Link to="/" className="text-red-600 hover:underline">Voltar para a loja</Link>
+      <div className="min-h-screen bg-[#090909] flex items-center justify-center text-white">
+        <p>Carregando produto...</p>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans">
-      <main className="pt-40 pb-20 px-6 max-w-[1280px] mx-auto">
-        
-        {/* Breadcrumb */}
-        <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-red-600 mb-8 transition-colors text-[10px] font-bold uppercase tracking-[0.2em] group">
-           <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" /> 
-           Voltar para Home
-        </Link>
+  // --- CÁLCULOS FINANCEIROS ---
+  const discountPix = 0.10; // 10%
+  const pricePix = product.price * (1 - discountPix);
+  const maxInstallments = 6;
+  const installmentValue = product.price / maxInstallments;
+  const freeShippingThreshold = 99.99;
 
+  return (
+    <div className="min-h-screen bg-[#090909] font-sans selection:bg-red-600 selection:text-white pt-20 lg:pt-28">
+      
+      {/* BREADCRUMB / VOLTAR */}
+      <div className="max-w-[1280px] mx-auto px-6 py-6">
+         <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest">
+            <ChevronLeft size={16} /> Voltar para a Loja
+         </Link>
+      </div>
+
+      <div className="max-w-[1280px] mx-auto px-6 pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
           
-          {/* Coluna da Imagem */}
-          <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl flex items-center justify-center p-8 md:p-16 relative group">
-             <div className="absolute inset-0 bg-red-600/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
-             <img 
-               src={product.image} 
-               alt={product.name} 
-               className="w-full max-h-[500px] object-contain drop-shadow-2xl z-10 group-hover:scale-105 transition-transform duration-500" 
-             />
+          {/* COLUNA ESQUERDA: IMAGENS */}
+          <div className="space-y-6">
+             {/* Imagem Principal */}
+             <div className="aspect-square bg-[#111] rounded-3xl border border-white/5 flex items-center justify-center p-8 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent)]"></div>
+                <img 
+                  src={product.image} 
+                  alt={product.name} 
+                  className="w-full h-full object-contain drop-shadow-2xl transition-transform duration-500 group-hover:scale-105"
+                />
+                {product.oldPrice && (
+                    <span className="absolute top-6 left-6 bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded uppercase tracking-wider">
+                        -{Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}% OFF
+                    </span>
+                )}
+             </div>
           </div>
 
-          {/* Coluna de Informações */}
-          <div className="flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="bg-red-600/10 text-red-600 border border-red-600/20 px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider">
-                {product.brand}
-              </span>
-              <div className="flex text-yellow-500">
-                {[...Array(5)].map((_, i) => <Star key={i} size={12} fill="currentColor" />)}
-              </div>
-              <span className="text-zinc-500 text-xs">(4.9/5.0)</span>
-            </div>
+          {/* COLUNA DIREITA: DETALHES */}
+          <div className="flex flex-col">
+             
+             {/* Marca e Avaliação */}
+             <div className="flex items-center justify-between mb-4">
+                <span className="text-red-600 font-bold uppercase tracking-widest text-xs border border-red-600/30 px-2 py-1 rounded">
+                    {product.brand || "Evo Primal"}
+                </span>
+                <div className="flex items-center gap-1 text-amber-400 text-xs font-bold">
+                    <div className="flex">
+                        <Star size={14} fill="currentColor" />
+                        <Star size={14} fill="currentColor" />
+                        <Star size={14} fill="currentColor" />
+                        <Star size={14} fill="currentColor" />
+                        <Star size={14} fill="currentColor" />
+                    </div>
+                    <span className="text-zinc-500 ml-2">(4.9/5.0)</span>
+                </div>
+             </div>
 
-            <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-[1.1] mb-6">
-              {product.name}
-            </h1>
+             <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter leading-none mb-4">
+                {product.name}
+             </h1>
 
-            <p className="text-zinc-400 leading-relaxed text-sm mb-8 border-l-2 border-red-600/50 pl-4">
-              {product.description}
-            </p>
+             <p className="text-zinc-400 text-sm leading-relaxed border-l-2 border-red-600 pl-4 mb-8">
+                {product.description || "Qualidade internacional e preço de fábrica. Potencialize seus resultados com a pureza que seu corpo merece."}
+             </p>
 
-            <div className="mt-auto bg-[#0a0a0a] border border-white/5 rounded-xl p-6 md:p-8">
-               <div className="flex items-end gap-4 mb-6">
-                  {product.oldPrice && (
-                    <span className="text-zinc-500 line-through text-lg font-bold">
-                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.oldPrice)}
+             {/* BLOCO DE PREÇO E PAGAMENTO */}
+             <div className="bg-[#111] border border-white/5 rounded-2xl p-6 mb-8 shadow-xl">
+                 
+                 {/* Preço "De / Por" */}
+                 <div className="flex items-end gap-3 mb-2">
+                    {product.oldPrice && (
+                        <span className="text-zinc-500 line-through text-lg decoration-red-600/50">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.oldPrice)}
+                        </span>
+                    )}
+                    <span className="text-4xl md:text-5xl font-black text-white tracking-tighter">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
                     </span>
-                  )}
-                  <span className="text-4xl md:text-5xl font-black text-white tracking-tighter">
-                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
-                  </span>
-               </div>
+                 </div>
 
-               <button 
-                  onClick={() => addToCart(product)}
-                  className="w-full bg-red-600 hover:bg-red-500 text-white py-4 md:py-5 rounded-lg font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(220,38,38,0.3)] hover:shadow-[0_0_30px_rgba(220,38,38,0.6)] transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
-               >
-                  <ShoppingBag size={20} />
-                  Adicionar ao Carrinho
-               </button>
+                 {/* Informações de Pagamento */}
+                 <div className="space-y-3 pt-4 border-t border-white/5">
+                    
+                    {/* PIX */}
+                    <div className="flex items-start gap-3">
+                        <QrCode className="text-red-600 mt-1 shrink-0" size={20} />
+                        <div>
+                            <p className="text-green-500 font-bold text-lg leading-none">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pricePix)}
+                                <span className="text-zinc-400 text-xs font-normal ml-2">via Pix ou Boleto</span>
+                            </p>
+                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider mt-0.5">
+                                10% de Desconto Imediato
+                            </p>
+                        </div>
+                    </div>
 
-               <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-white/10">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-zinc-900 p-2 rounded text-red-600"><Truck size={20} /></div>
-                    <div className="flex flex-col">
-                       <span className="text-white text-[10px] font-black uppercase">Frete Grátis</span>
-                       <span className="text-zinc-500 text-[10px]">Para todo o Brasil</span>
+                    {/* CARTÃO */}
+                    <div className="flex items-start gap-3">
+                        <CreditCard className="text-zinc-400 mt-1 shrink-0" size={20} />
+                        <div>
+                            <p className="text-white font-bold text-sm">
+                                Até {maxInstallments}x de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(installmentValue)}
+                            </p>
+                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider mt-0.5">
+                                Sem Juros no Cartão
+                            </p>
+                        </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="bg-zinc-900 p-2 rounded text-red-600"><ShieldCheck size={20} /></div>
-                    <div className="flex flex-col">
-                       <span className="text-white text-[10px] font-black uppercase">Garantia Total</span>
-                       <span className="text-zinc-500 text-[10px]">30 dias para troca</span>
+                 </div>
+
+                 {/* BOTÃO DE COMPRA */}
+                 <button 
+                    onClick={() => {
+                        addToCart(product);
+                        openCart();
+                    }}
+                    className="w-full mt-8 bg-red-600 hover:bg-red-500 text-white py-4 rounded-xl font-black uppercase tracking-[0.15em] shadow-[0_0_25px_rgba(220,38,38,0.4)] transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-3"
+                 >
+                    <ShoppingCart size={20} />
+                    Adicionar ao Carrinho
+                 </button>
+             </div>
+
+             {/* INFO BOXES (FRETE E GARANTIA) */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* Box Frete */}
+                <div className="bg-[#111] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
+                    <div className="w-10 h-10 bg-zinc-900 rounded-lg flex items-center justify-center text-red-600 shrink-0 group-hover:scale-110 transition-transform">
+                        <Truck size={20} />
                     </div>
-                  </div>
-               </div>
-            </div>
+                    <div>
+                        <h4 className="text-white font-bold text-xs uppercase tracking-wider">Frete Grátis</h4>
+                        <p className="text-zinc-500 text-[10px] mt-0.5 font-medium">
+                           Para compras acima de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(freeShippingThreshold)}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Box Garantia */}
+                <div className="bg-[#111] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
+                    <div className="w-10 h-10 bg-zinc-900 rounded-lg flex items-center justify-center text-red-600 shrink-0 group-hover:scale-110 transition-transform">
+                        <ShieldCheck size={20} />
+                    </div>
+                    <div>
+                        <h4 className="text-white font-bold text-xs uppercase tracking-wider">Garantia Total</h4>
+                        <p className="text-zinc-500 text-[10px] mt-0.5 font-medium">
+                           30 dias para troca ou devolução
+                        </p>
+                    </div>
+                </div>
+
+             </div>
           </div>
         </div>
-      </main>
+      </div>
+
       <Footer />
     </div>
   );
