@@ -1,15 +1,27 @@
 import { useState } from "react";
-import { X, Trash2, ShoppingBag, CreditCard, Loader2, Plus } from "lucide-react";
+import { X, Trash2, ShoppingBag, CreditCard, Loader2, Plus, LogIn } from "lucide-react";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext"; // Importado para verificar login
+import { useNavigate } from "react-router-dom";   // Importado para redirecionar
 
 export default function CartSidebar() {
   const { cart, isCartOpen, closeCart, removeFromCart, addToCart } = useCart();
+  const { isAuthenticated } = useAuth(); // Pegamos o status de autenticação
+  const navigate = useNavigate(); // Hook para navegação
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   async function handleCheckout() {
     if (cart.length === 0) return;
+
+    // VERIFICAÇÃO DE LOGIN
+    if (!isAuthenticated) {
+        closeCart(); // Fecha o sidebar para não atrapalhar
+        navigate("/login"); // Manda para a tela de login
+        return; // Para a execução aqui
+    }
+
     setIsCheckingOut(true);
     try {
       // Simulação
@@ -97,13 +109,13 @@ export default function CartSidebar() {
                     </div>
                     <div className="flex items-end justify-between mt-2">
                       <div className="flex items-center gap-3 bg-[#050505] rounded-lg p-1 border border-white/5">
-                         <span className="text-xs font-bold text-white px-2">Qtd: {item.quantity}</span>
-                         <button 
-                           onClick={() => addToCart(item)} 
-                           className="w-6 h-6 flex items-center justify-center bg-zinc-800 hover:bg-red-600 text-white rounded transition-colors"
-                         >
-                           <Plus size={12} />
-                         </button>
+                          <span className="text-xs font-bold text-white px-2">Qtd: {item.quantity}</span>
+                          <button 
+                            onClick={() => addToCart(item)} 
+                            className="w-6 h-6 flex items-center justify-center bg-zinc-800 hover:bg-red-600 text-white rounded transition-colors"
+                          >
+                            <Plus size={12} />
+                          </button>
                       </div>
                       <div className="text-right">
                         <span className="block text-[10px] text-zinc-500 uppercase font-bold">Total Item</span>
@@ -150,16 +162,26 @@ export default function CartSidebar() {
                   </>
                 ) : (
                   <>
-                    <CreditCard size={20} className="group-hover:scale-110 transition-transform" /> 
-                    Finalizar Compra
+                    {/* Muda o ícone e o texto dependendo se está logado ou não */}
+                    {isAuthenticated ? (
+                        <>
+                           <CreditCard size={20} className="group-hover:scale-110 transition-transform" /> 
+                           Finalizar Compra
+                        </>
+                    ) : (
+                        <>
+                           <LogIn size={20} className="group-hover:translate-x-1 transition-transform" /> 
+                           Entrar para Comprar
+                        </>
+                    )}
                   </>
                 )}
               </button>
               
               <div className="flex flex-col items-center gap-2 pt-2">
                 <p className="text-[10px] text-zinc-600 uppercase font-bold tracking-wider flex items-center gap-1.5">
-                   <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse shadow-[0_0_5px_#dc2626]"></span> 
-                   Ambiente 100% Seguro
+                    <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse shadow-[0_0_5px_#dc2626]"></span> 
+                    Ambiente 100% Seguro
                 </p>
               </div>
           </div>

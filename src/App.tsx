@@ -17,6 +17,7 @@ import LoginPage from './pages/LoginPage';
 import AccountPage from './pages/AccountPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import EmailConfirmationPage from './pages/EmailConfirmationPage';
 
 // Componentes UI
 import CartSidebar from './components/CartSidebar';
@@ -53,6 +54,7 @@ function App() {
               <Route path="/minha-conta" element={<AccountPage />} />
               <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
               <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
+              <Route path="/confirmar-email" element={<EmailConfirmationPage />} />
               
             </Routes>
           </Router>
