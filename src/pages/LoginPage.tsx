@@ -1,7 +1,62 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map, CheckCircle2 } from "lucide-react";
+import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map, CheckCircle2, FileText, Search } from "lucide-react";
+
+// --- FUNÇÕES UTILITÁRIAS ---
+
+const maskCPF = (value: string) => {
+  return value
+    .replace(/\D/g, "")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})/, "$1-$2")
+    .replace(/(-\d{2})\d+?$/, "$1");
+};
+
+const validateCPF = (cpf: string) => {
+  cpf = cpf.replace(/[^\d]+/g, "");
+  if (cpf === "" || cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  let add = 0;
+  for (let i = 0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
+  let rev = 11 - (add % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  if (rev !== parseInt(cpf.charAt(9))) return false;
+  add = 0;
+  for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
+  rev = 11 - (add % 11);
+  if (rev === 10 || rev === 11) rev = 0;
+  return rev === parseInt(cpf.charAt(10));
+};
+
+const maskPhone = (value: string) => {
+  return value
+    .replace(/\D/g, "")
+    .replace(/^(\d{2})(\d)/g, "($1) $2")
+    .replace(/(\d)(\d{4})$/, "$1-$2")
+    .slice(0, 15);
+};
+
+const maskCEP = (value: string) => {
+  return value
+    .replace(/\D/g, "")
+    .replace(/^(\d{5})(\d)/, "$1-$2")
+    .slice(0, 9);
+};
+
+const validateName = (name: string) => {
+  const regex = /^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/;
+  // Lista básica de bloqueio (palavras ofensivas)
+  const blockList = ["admin", "root", "teste", "merda", "porra", "caralho", "boceta", "puta"];
+  
+  if (!regex.test(name)) return "O nome não pode conter números ou símbolos.";
+  if (name.trim().split(" ").length < 2) return "Por favor, insira nome e sobrenome.";
+  
+  const foundBadWord = blockList.some(word => name.toLowerCase().includes(word));
+  if (foundBadWord) return "Nome inválido.";
+
+  return null;
+};
 
 export default function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -15,28 +70,31 @@ export default function LoginPage() {
     password: "",
     confirmPassword: "",
     phone: "",
+    cpf: "",
+    cep: "",
     street: "",
     number: "",
+    neighborhood: "",
     complement: "",
     city: "",
     state: ""
   });
 
-  // ESTADO DO IBGE
   const [cities, setCities] = useState<{ nome: string }[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingCep, setLoadingCep] = useState(false);
   const [error, setError] = useState("");
   
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const API_URL = "https://evoprimal-api.onrender.com/api"; 
+  const API_URL = import.meta.env.VITE_API_URL || "https://evoprimal-api.onrender.com/api"; 
   
   const ufs = [
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
   ];
 
-  // BUSCAR CIDADES
+  // BUSCA CIDADES (IBGE) - Caso o usuário troque de UF manualmente
   useEffect(() => {
     if (formData.state) {
         setLoadingCities(true);
@@ -52,13 +110,59 @@ export default function LoginPage() {
     }
   }, [formData.state]);
 
-  // TRADUÇÃO DE ERROS
+  // BUSCA AUTOMÁTICA DE CEP (ViaCEP)
+  async function handleCepBlur(e: React.FocusEvent<HTMLInputElement>) {
+    const cep = e.target.value.replace(/\D/g, '');
+
+    if (cep.length !== 8) return;
+
+    setLoadingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await res.json();
+
+      if (data.erro) {
+        throw new Error("CEP não encontrado."); // Isso não para o código, só vai pro catch
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        street: data.logradouro || "",
+        neighborhood: data.bairro || "",
+        city: data.localidade || "",
+        state: data.uf || "",
+      }));
+
+      // Foca no número para facilitar
+      document.getElementById("numberInput")?.focus();
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingCep(false);
+    }
+  }
+
+  // --- CORREÇÃO DO TIPO AQUI ---
+  // Aceita tanto Input quanto Select
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    let formattedValue = value;
+
+    if (name === "cpf") formattedValue = maskCPF(value);
+    if (name === "phone") formattedValue = maskPhone(value);
+    if (name === "cep") formattedValue = maskCEP(value);
+    if (name === "number") formattedValue = value.replace(/\D/g, "");
+
+    setFormData(prev => ({ ...prev, [name]: formattedValue }));
+  };
+
   function translateError(errorMessage: string) {
     if (errorMessage.includes("Email is already taken")) return "Este e-mail já está cadastrado.";
     if (errorMessage.includes("Username is already taken")) return "Este nome de usuário já está em uso.";
+    if (errorMessage.includes("cpf must be unique")) return "Este CPF já está cadastrado.";
     if (errorMessage.includes("Invalid identifier or password")) return "E-mail ou senha incorretos.";
     if (errorMessage.includes("password must be at least")) return "A senha deve ter no mínimo 6 caracteres.";
-    if (errorMessage.includes("Invalid parameters")) return "Erro: O servidor recusou os dados extras. Tente logar e preencher no perfil.";
     return "Ocorreu um erro. Verifique seus dados.";
   }
 
@@ -71,10 +175,28 @@ export default function LoginPage() {
     setError("");
 
     if (isRegistering) {
+        // Validações Manuais
         if (!isValidEmail(formData.email)) {
             setError("Por favor, insira um e-mail válido.");
             return;
         }
+
+        const nameError = validateName(formData.username);
+        if (nameError) {
+            setError(nameError);
+            return;
+        }
+
+        if (!validateCPF(formData.cpf)) {
+            setError("CPF inválido. Verifique os números.");
+            return;
+        }
+
+        if (formData.phone.length < 14) { 
+             setError("Telefone incompleto. Use o formato (DD) 9XXXX-XXXX");
+             return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
             setError("As senhas não coincidem.");
             return;
@@ -85,13 +207,14 @@ export default function LoginPage() {
 
     try {
       if (isRegistering) {
-        // --- CADASTRO (ESTRATÉGIA DE 2 PASSOS) ---
+        // --- CADASTRO ---
         
-        // PASSO 1: Criar conta básica
+        // 1. Criar Usuário
         const registerPayload = { 
             username: formData.username, 
             email: formData.email, 
-            password: formData.password 
+            password: formData.password,
+            cpf: formData.cpf // Enviando formatado (recomendado se for String no Strapi)
         };
 
         const resRegister = await fetch(`${API_URL}/auth/local/register`, {
@@ -106,11 +229,11 @@ export default function LoginPage() {
             throw new Error(translateError(dataRegister.error?.message || JSON.stringify(dataRegister)));
         }
 
-        // PASSO 2: Atualizar perfil com endereço e telefone
+        // 2. Atualizar Dados Extras (Endereço/Telefone)
         const jwt = dataRegister.jwt;
         const userId = dataRegister.user.id;
         
-        const fullAddress = `${formData.street}, ${formData.number}${formData.complement ? ' - ' + formData.complement : ''} - ${formData.city}/${formData.state}`;
+        const fullAddress = `${formData.street}, ${formData.number} - ${formData.neighborhood} - ${formData.city}/${formData.state} - CEP: ${formData.cep} ${formData.complement ? '(' + formData.complement + ')' : ''}`;
         
         const updatePayload = {
             phone: formData.phone,
@@ -141,7 +264,7 @@ export default function LoginPage() {
         }
 
       } else {
-        // --- LOGIN NORMAL ---
+        // --- LOGIN ---
         const loginPayload = { identifier: formData.email, password: formData.password };
         
         const res = await fetch(`${API_URL}/auth/local`, {
@@ -168,7 +291,7 @@ export default function LoginPage() {
     }
   }
 
-  // TELA DE SUCESSO (SE HOUVER CONFIRMAÇÃO DE EMAIL)
+  // TELA SUCESSO
   if (emailSent) {
       return (
         <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white pt-20">
@@ -190,7 +313,6 @@ export default function LoginPage() {
   }
 
   return (
-    // LAYOUT AJUSTADO: pt-32 para não esconder atrás da navbar
     <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-start pt-32 pb-10 px-4 font-sans selection:bg-red-600 selection:text-white">
       
       <div className="absolute top-24 left-6 md:top-28 md:left-10 z-0">
@@ -221,16 +343,34 @@ export default function LoginPage() {
             <>
               {/* --- DADOS PESSOAIS --- */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Nome de Usuário</label>
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Nome Completo</label>
                 <div className="relative group">
                   <User className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                   <input 
                     type="text" 
+                    name="username" 
                     required
                     className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
-                    placeholder="Seu nome"
+                    placeholder="Nome e Sobrenome"
                     value={formData.username}
-                    onChange={e => setFormData({...formData, username: e.target.value})}
+                    onChange={handleInputChange} 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">CPF</label>
+                <div className="relative group">
+                  <FileText className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
+                  <input 
+                    type="text" 
+                    name="cpf"
+                    required
+                    maxLength={14}
+                    className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
+                    placeholder="000.000.000-00"
+                    value={formData.cpf}
+                    onChange={handleInputChange}
                   />
                 </div>
               </div>
@@ -241,11 +381,13 @@ export default function LoginPage() {
                   <Phone className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                   <input 
                     type="tel" 
+                    name="phone"
                     required
+                    maxLength={15}
                     className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
-                    placeholder="(00) 00000-0000"
+                    placeholder="(00) 90000-0000"
                     value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    onChange={handleInputChange}
                   />
                 </div>
               </div>
@@ -254,83 +396,91 @@ export default function LoginPage() {
               <div className="pt-4 border-t border-white/5">
                  <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-4">Endereço de Entrega</p>
                  
-                 <div className="space-y-1 mb-3">
-                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Rua / Logradouro</label>
-                    <div className="relative group">
-                      <MapPin className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
-                      <input 
-                        type="text" 
-                        required
-                        className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
-                        placeholder="Ex: Av. Paulista"
-                        value={formData.street}
-                        onChange={e => setFormData({...formData, street: e.target.value})}
-                      />
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                    {/* CEP */}
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">CEP</label>
+                        <div className="relative group">
+                            <Search className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
+                            <input 
+                                type="text" 
+                                name="cep"
+                                required
+                                maxLength={9}
+                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
+                                placeholder="00000-000"
+                                value={formData.cep}
+                                onChange={handleInputChange}
+                                onBlur={handleCepBlur}
+                            />
+                            {loadingCep && <div className="absolute right-3 top-3.5"><Loader2 size={18} className="animate-spin text-red-600"/></div>}
+                        </div>
+                    </div>
+
+                    {/* RUA */}
+                    <div className="space-y-1 md:col-span-2">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Rua / Logradouro</label>
+                        <div className="relative group">
+                            <MapPin className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
+                            <input 
+                                type="text" 
+                                name="street"
+                                required
+                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
+                                placeholder="Ex: Av. Paulista"
+                                value={formData.street}
+                                onChange={handleInputChange}
+                            />
+                        </div>
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-3 mb-3">
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Número</label>
                         <div className="relative group">
                         <Hash className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                         <input 
+                            id="numberInput"
                             type="text" 
+                            name="number"
                             required
                             className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                             placeholder="123"
                             value={formData.number}
-                            onChange={e => setFormData({...formData, number: e.target.value})}
+                            onChange={handleInputChange}
                         />
                         </div>
                     </div>
+                    
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Comp. (Opcional)</label>
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Bairro</label>
                         <div className="relative group">
-                        <Home className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
+                        <Map className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                         <input 
                             type="text" 
+                            name="neighborhood"
+                            required
                             className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
-                            placeholder="Apto 10"
-                            value={formData.complement}
-                            onChange={e => setFormData({...formData, complement: e.target.value})}
+                            placeholder="Centro"
+                            value={formData.neighborhood}
+                            onChange={handleInputChange}
                         />
                         </div>
                     </div>
-                 </div>
 
-                 <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">UF</label>
-                        <div className="relative group">
-                            <select 
-                                required
-                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 px-4 text-white focus:border-red-600 focus:outline-none transition-all appearance-none cursor-pointer"
-                                value={formData.state}
-                                onChange={e => setFormData({...formData, state: e.target.value, city: ""})}
-                            >
-                                <option value="" disabled>UF</option>
-                                {ufs.map(uf => (
-                                    <option key={uf} value={uf} className="bg-zinc-900 text-white">{uf}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="col-span-2 space-y-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Cidade</label>
-                        <div className="relative group">
-                            <Map className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
-                            {loadingCities && <Loader2 className="absolute right-3 top-3.5 animate-spin text-red-600" size={18} />}
-                            <select 
+                        <select 
                                 required
+                                name="city"
                                 disabled={!formData.state || loadingCities}
-                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 px-3 text-white focus:border-red-600 focus:outline-none transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                                 value={formData.city}
-                                onChange={e => setFormData({...formData, city: e.target.value})}
+                                onChange={handleInputChange}
                             >
                                 <option value="" disabled>
-                                    {loadingCities ? "Carregando..." : (formData.state ? "Selecione..." : "Escolha a UF primeiro")}
+                                    {loadingCities ? "..." : (formData.state ? "Selecione..." : "UF")}
                                 </option>
                                 {cities.map((city: any) => (
                                     <option key={city.id} value={city.nome} className="bg-zinc-900 text-white">
@@ -338,9 +488,40 @@ export default function LoginPage() {
                                     </option>
                                 ))}
                             </select>
-                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">UF</label>
+                        <select 
+                            required
+                            name="state"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl py-3 px-3 text-white focus:border-red-600 focus:outline-none transition-all appearance-none cursor-pointer text-sm"
+                            value={formData.state}
+                            onChange={(e) => setFormData({...formData, state: e.target.value, city: ""})}
+                        >
+                            <option value="" disabled>UF</option>
+                            {ufs.map(uf => (
+                                <option key={uf} value={uf} className="bg-zinc-900 text-white">{uf}</option>
+                            ))}
+                        </select>
                     </div>
                  </div>
+
+                 <div className="space-y-1 mb-3">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Comp. (Opcional)</label>
+                    <div className="relative group">
+                    <Home className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
+                    <input 
+                        type="text" 
+                        name="complement"
+                        className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
+                        placeholder="Apto 10"
+                        value={formData.complement}
+                        onChange={handleInputChange}
+                    />
+                    </div>
+                 </div>
+
               </div>
             </>
           )}
@@ -352,11 +533,12 @@ export default function LoginPage() {
               <Mail className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
               <input 
                 type="email" 
+                name="email"
                 required
                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                 placeholder="seu@email.com"
                 value={formData.email}
-                onChange={e => setFormData({...formData, email: e.target.value})}
+                onChange={handleInputChange}
               />
             </div>
           </div>
@@ -367,12 +549,13 @@ export default function LoginPage() {
               <Lock className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
               <input 
                 type="password" 
+                name="password"
                 required
                 minLength={6}
                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                 placeholder="******"
                 value={formData.password}
-                onChange={e => setFormData({...formData, password: e.target.value})}
+                onChange={handleInputChange}
               />
             </div>
           </div>
@@ -384,17 +567,17 @@ export default function LoginPage() {
                 <Lock className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                 <input 
                     type="password" 
+                    name="confirmPassword"
                     required
                     className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                     placeholder="Repita a senha"
                     value={formData.confirmPassword}
-                    onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                    onChange={handleInputChange}
                 />
                 </div>
              </div>
           )}
 
-          {/* LINK ESQUECI A SENHA (APENAS NO LOGIN) */}
           {!isRegistering && (
             <div className="flex justify-end pt-2">
                 <Link 
