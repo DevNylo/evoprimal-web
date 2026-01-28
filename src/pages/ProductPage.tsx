@@ -127,7 +127,7 @@ export default function ProductPage() {
                                 <span className="text-zinc-400 text-xs font-normal ml-2">via Pix ou Boleto</span>
                             </p>
                             <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider mt-0.5">
-                                10% de Desconto Imediato
+                                5% de Desconto Imediato
                             </p>
                         </div>
                     </div>
