@@ -34,7 +34,7 @@ export default function ProductPage() {
   }
 
   // --- CÁLCULOS FINANCEIROS ---
-  const discountPix = 0.10;
+  const discountPix = 0.05;
   const pricePix = product.price * (1 - discountPix);
   const maxInstallments = 6;
   const installmentValue = product.price / maxInstallments;
