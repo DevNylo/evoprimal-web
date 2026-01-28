@@ -52,6 +52,7 @@ export default function Home() {
     { title: "CREATINA", slug: "creatina", subtitle: "Força Pura", img: "/placeholder.png" },
     { title: "PRÉ-TREINO", slug: "pre-treino", subtitle: "Energia", img: "/placeholder.png" },
     { title: "VITAMINAS", slug: "vitaminas", subtitle: "Saúde", img: "/placeholder.png" },
+    { title: "BETA-ALANINA", slug: "beta-alanina", subtitle: "Resistência", img: "/placeholder.png" },
   ];
 
   return (
