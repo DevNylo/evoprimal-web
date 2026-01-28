@@ -29,6 +29,7 @@ export default function CategoryPage() {
     "creatina": "Creatina Pura",
     "pre-treino": "Pré-Treinos",
     "vitaminas": "Multivitamínicos",
+    "beta-alanina": "Beta-Alanina",
   };
 
   // Define o título da página

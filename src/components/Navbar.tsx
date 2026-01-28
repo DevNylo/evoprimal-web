@@ -57,8 +57,8 @@ export default function Navbar() {
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 border-b border-white/5
         ${
           isScrolled
-            ? "bg-black/80 backdrop-blur-md py-3 shadow-lg" // ROLANDO: Mais escuro e fosco
-            : "bg-black/20 backdrop-blur-sm py-5" // TOPO: Mais transparente, mas ainda fosco
+            ? "bg-black/80 backdrop-blur-md py-3 shadow-lg"
+            : "bg-black/20 backdrop-blur-sm py-5"
         }`}
       >
         <div className="max-w-[1400px] mx-auto px-6 flex items-center justify-between">
@@ -85,6 +85,10 @@ export default function Navbar() {
                      <Link to="/categoria/whey-protein" className={getLinkClass("/categoria/whey-protein", true)}>Whey Protein</Link>
                      <Link to="/categoria/creatina" className={getLinkClass("/categoria/creatina", true)}>Creatina</Link>
                      <Link to="/categoria/pre-treino" className={getLinkClass("/categoria/pre-treino", true)}>Pré-Treino</Link>
+                     
+                     {/* NOVO ITEM ADICIONADO AQUI */}
+                     <Link to="/categoria/beta-alanina" className={getLinkClass("/categoria/beta-alanina", true)}>Beta-Alanina</Link>
+                     
                      <Link to="/categoria/vitaminas" className={getLinkClass("/categoria/vitaminas", true)}>Vitaminas</Link>
                    </div>
                 </div>
@@ -138,6 +142,12 @@ export default function Navbar() {
          <Link to="/" className="text-2xl font-black uppercase text-white" onClick={() => setIsMobileMenuOpen(false)}>Início</Link>
          <Link to="/categoria/whey-protein" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Whey Protein</Link>
          <Link to="/categoria/creatina" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Creatina</Link>
+         <Link to="/categoria/pre-treino" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Pré-Treino</Link>
+         
+         {/* NOVO ITEM MOBILE */}
+         <Link to="/categoria/beta-alanina" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Beta-Alanina</Link>
+         
+         <Link to="/categoria/vitaminas" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Vitaminas</Link>
          <Link to="/ofertas" className="text-2xl font-black uppercase text-red-600" onClick={() => setIsMobileMenuOpen(false)}>Ofertas</Link>
       </div>
     </>
