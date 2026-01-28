@@ -2,7 +2,8 @@ import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useStore } from "../context/StoreContext";
 import { useCart } from "../context/CartContext";
-import { ShoppingCart, ChevronLeft, Star, Truck, ShieldCheck, CreditCard, QrCode, ArrowRight } from "lucide-react";
+// REMOVIDO: ArrowRight que não estava sendo usado
+import { ShoppingCart, ChevronLeft, Star, Truck, ShieldCheck, CreditCard, QrCode, Loader2 } from "lucide-react";
 import Footer from "../components/Footer";
 
 export default function ProductPage() {
@@ -10,14 +11,13 @@ export default function ProductPage() {
   const { products } = useStore();
   const { addToCart, openCart } = useCart();
   const [product, setProduct] = useState<any>(null);
-  const [selectedImage, setSelectedImage] = useState(0);
+  
+  // REMOVIDO: O estado 'selectedImage' que estava travando o build
 
   useEffect(() => {
-    // Simula a busca do produto pelo ID
     const found = products.find((p) => p.id === Number(id));
     setProduct(found);
-    // Reseta a imagem selecionada ao trocar de produto
-    setSelectedImage(0);
+    
     // Rola para o topo
     window.scrollTo(0, 0);
   }, [id, products]);
@@ -25,7 +25,7 @@ export default function ProductPage() {
   if (!product) {
     return (
       <div className="min-h-screen bg-[#090909] flex items-center justify-center text-white">
-        <p>Carregando produto...</p>
+        <Loader2 className="animate-spin text-red-600" />
       </div>
     );
   }
