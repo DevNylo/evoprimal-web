@@ -4,20 +4,25 @@ import { useEffect } from 'react';
 // Contextos
 import { StoreProvider } from './context/StoreContext';
 import { CartProvider } from './context/CartContext';
-import { AuthProvider } from './context/AuthContext'; // IMPORTADO
+import { AuthProvider } from './context/AuthContext';
 
-// Páginas
+// Páginas Principais
 import Home from './pages/Home';
 import ProductPage from './pages/ProductPage';
 import CategoryPage from './pages/CategoryPage';
 import OfferPage from './pages/OfferPage';
-import LoginPage from './pages/LoginPage';     // IMPORTADO
-import AccountPage from './pages/AccountPage'; // IMPORTADO
+
+// Páginas de Usuário e Autenticação
+import LoginPage from './pages/LoginPage';
+import AccountPage from './pages/AccountPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 // Componentes UI
 import CartSidebar from './components/CartSidebar';
 import Navbar from './components/Navbar';
 
+// Componente para rolar para o topo ao mudar de rota
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -28,7 +33,7 @@ function ScrollToTop() {
 
 function App() {
   return (
-    <AuthProvider> {/* ENVOLVENDO TUDO COM AUTH */}
+    <AuthProvider>
       <StoreProvider>
         <CartProvider>
           <Router>
@@ -37,14 +42,17 @@ function App() {
             <CartSidebar />
             
             <Routes>
+              {/* Rotas da Loja */}
               <Route path="/" element={<Home />} />
               <Route path="/produto/:id" element={<ProductPage />} />
               <Route path="/categoria/:slug" element={<CategoryPage />} />
               <Route path="/ofertas" element={<OfferPage />} />
               
-              {/* NOVAS ROTAS */}
+              {/* Rotas de Autenticação */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/minha-conta" element={<AccountPage />} />
+              <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+              <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
               
             </Routes>
           </Router>

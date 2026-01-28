@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map } from "lucide-react";
+import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map, CheckCircle2 } from "lucide-react";
 
 export default function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   
+  // ESTADO DO FORMULÁRIO
   const [formData, setFormData] = useState({ 
     username: "", 
     email: "", 
     password: "",
+    confirmPassword: "",
     phone: "",
     street: "",
     number: "",
@@ -19,6 +22,7 @@ export default function LoginPage() {
     state: ""
   });
 
+  // ESTADO DO IBGE
   const [cities, setCities] = useState<{ nome: string }[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
   const [error, setError] = useState("");
@@ -32,6 +36,7 @@ export default function LoginPage() {
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
   ];
 
+  // BUSCAR CIDADES
   useEffect(() => {
     if (formData.state) {
         setLoadingCities(true);
@@ -47,67 +52,145 @@ export default function LoginPage() {
     }
   }, [formData.state]);
 
-  // --- FUNÇÃO DE TRADUÇÃO DE ERROS ---
+  // TRADUÇÃO DE ERROS
   function translateError(errorMessage: string) {
     if (errorMessage.includes("Email is already taken")) return "Este e-mail já está cadastrado.";
     if (errorMessage.includes("Username is already taken")) return "Este nome de usuário já está em uso.";
     if (errorMessage.includes("Invalid identifier or password")) return "E-mail ou senha incorretos.";
     if (errorMessage.includes("password must be at least")) return "A senha deve ter no mínimo 6 caracteres.";
-    if (errorMessage.includes("Invalid parameters")) return "Erro de sistema: Campos inválidos no servidor (Aguarde o Deploy).";
-    return "Ocorreu um erro. Verifique seus dados e tente novamente.";
+    if (errorMessage.includes("Invalid parameters")) return "Erro: O servidor recusou os dados extras. Tente logar e preencher no perfil.";
+    return "Ocorreu um erro. Verifique seus dados.";
+  }
+
+  function isValidEmail(email: string) {
+    return /\S+@\S+\.\S+/.test(email);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (isRegistering) {
+        if (!isValidEmail(formData.email)) {
+            setError("Por favor, insira um e-mail válido.");
+            return;
+        }
+        if (formData.password !== formData.confirmPassword) {
+            setError("As senhas não coincidem.");
+            return;
+        }
+    }
+
     setIsLoading(true);
 
     try {
-      const endpoint = isRegistering ? "/auth/local/register" : "/auth/local";
-      
-      let payload;
-
       if (isRegistering) {
-        const fullAddress = `${formData.street}, ${formData.number}${formData.complement ? ' - ' + formData.complement : ''} - ${formData.city}/${formData.state}`;
-
-        payload = { 
+        // --- CADASTRO (ESTRATÉGIA DE 2 PASSOS) ---
+        
+        // PASSO 1: Criar conta básica
+        const registerPayload = { 
             username: formData.username, 
             email: formData.email, 
-            password: formData.password,
+            password: formData.password 
+        };
+
+        const resRegister = await fetch(`${API_URL}/auth/local/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(registerPayload),
+        });
+
+        const dataRegister = await resRegister.json();
+
+        if (!resRegister.ok) {
+            throw new Error(translateError(dataRegister.error?.message || JSON.stringify(dataRegister)));
+        }
+
+        // PASSO 2: Atualizar perfil com endereço e telefone
+        const jwt = dataRegister.jwt;
+        const userId = dataRegister.user.id;
+        
+        const fullAddress = `${formData.street}, ${formData.number}${formData.complement ? ' - ' + formData.complement : ''} - ${formData.city}/${formData.state}`;
+        
+        const updatePayload = {
             phone: formData.phone,
             address: fullAddress
         };
+
+        const resUpdate = await fetch(`${API_URL}/users/${userId}`, {
+            method: "PUT",
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${jwt}`
+            },
+            body: JSON.stringify(updatePayload),
+        });
+
+        if (!resUpdate.ok) {
+            console.warn("Conta criada, mas falha ao salvar endereço extra.", await resUpdate.json());
+        } else {
+             dataRegister.user.phone = formData.phone;
+             dataRegister.user.address = fullAddress;
+        }
+
+        if (dataRegister.user.confirmed === false) {
+            setEmailSent(true);
+        } else {
+            login(dataRegister.jwt, dataRegister.user);
+            navigate("/minha-conta");
+        }
+
       } else {
-        payload = { identifier: formData.email, password: formData.password };
+        // --- LOGIN NORMAL ---
+        const loginPayload = { identifier: formData.email, password: formData.password };
+        
+        const res = await fetch(`${API_URL}/auth/local`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(loginPayload),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(translateError(data.error?.message || JSON.stringify(data)));
+        }
+
+        login(data.jwt, data.user);
+        navigate("/minha-conta");
       }
-
-      const res = await fetch(`${API_URL}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        // Usa a nossa função de tradução aqui
-        const originalError = data.error?.message || "";
-        throw new Error(translateError(originalError));
-      }
-
-      login(data.jwt, data.user);
-      navigate("/minha-conta");
 
     } catch (err: any) {
-      console.error("Erro Login:", err);
-      // Exibe o erro já traduzido
+      console.error("Erro capturado:", err);
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
   }
 
+  // TELA DE SUCESSO (SE HOUVER CONFIRMAÇÃO DE EMAIL)
+  if (emailSent) {
+      return (
+        <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white pt-20">
+            <div className="bg-[#111] border border-white/5 p-8 rounded-2xl shadow-2xl max-w-md text-center animate-in zoom-in">
+                <CheckCircle2 className="text-green-500 w-16 h-16 mx-auto mb-4" />
+                <h2 className="text-2xl font-black uppercase mb-2">Conta Criada!</h2>
+                <p className="text-zinc-400 mb-6 text-sm">
+                    Sua conta foi criada. Verifique seu e-mail se necessário.
+                </p>
+                <button 
+                    onClick={() => { setEmailSent(false); setIsRegistering(false); }}
+                    className="bg-red-600 hover:bg-red-500 text-white font-bold uppercase py-3 px-8 rounded-xl transition-colors w-full"
+                >
+                    Ir para Login
+                </button>
+            </div>
+        </div>
+      );
+  }
+
   return (
+    // LAYOUT AJUSTADO: pt-32 para não esconder atrás da navbar
     <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-start pt-32 pb-10 px-4 font-sans selection:bg-red-600 selection:text-white">
       
       <div className="absolute top-24 left-6 md:top-28 md:left-10 z-0">
@@ -136,7 +219,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {isRegistering && (
             <>
-              {/* DADOS PESSOAIS */}
+              {/* --- DADOS PESSOAIS --- */}
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Nome de Usuário</label>
                 <div className="relative group">
@@ -167,11 +250,10 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* ENDEREÇO */}
+              {/* --- ENDEREÇO --- */}
               <div className="pt-4 border-t border-white/5">
                  <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-4">Endereço de Entrega</p>
                  
-                 {/* RUA */}
                  <div className="space-y-1 mb-3">
                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Rua / Logradouro</label>
                     <div className="relative group">
@@ -188,7 +270,6 @@ export default function LoginPage() {
                  </div>
 
                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    {/* NÚMERO */}
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Número</label>
                         <div className="relative group">
@@ -203,7 +284,6 @@ export default function LoginPage() {
                         />
                         </div>
                     </div>
-                    {/* COMPLEMENTO */}
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Comp. (Opcional)</label>
                         <div className="relative group">
@@ -220,8 +300,6 @@ export default function LoginPage() {
                  </div>
 
                  <div className="grid grid-cols-3 gap-3">
-                    
-                    {/* DROPDOWN ESTADO (UF) */}
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">UF</label>
                         <div className="relative group">
@@ -239,14 +317,11 @@ export default function LoginPage() {
                         </div>
                     </div>
 
-                    {/* DROPDOWN CIDADE */}
                     <div className="col-span-2 space-y-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Cidade</label>
                         <div className="relative group">
                             <Map className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
-                            
                             {loadingCities && <Loader2 className="absolute right-3 top-3.5 animate-spin text-red-600" size={18} />}
-                            
                             <select 
                                 required
                                 disabled={!formData.state || loadingCities}
@@ -270,7 +345,7 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* LOGIN CREDENTIALS */}
+          {/* --- CREDENCIAIS --- */}
           <div className="space-y-1 pt-2">
             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">E-mail</label>
             <div className="relative group">
@@ -301,6 +376,35 @@ export default function LoginPage() {
               />
             </div>
           </div>
+
+          {isRegistering && (
+             <div className="space-y-1">
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Confirmar Senha</label>
+                <div className="relative group">
+                <Lock className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
+                <input 
+                    type="password" 
+                    required
+                    className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
+                    placeholder="Repita a senha"
+                    value={formData.confirmPassword}
+                    onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                />
+                </div>
+             </div>
+          )}
+
+          {/* LINK ESQUECI A SENHA (APENAS NO LOGIN) */}
+          {!isRegistering && (
+            <div className="flex justify-end pt-2">
+                <Link 
+                    to="/esqueci-senha" 
+                    className="text-zinc-500 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                >
+                    Esqueci minha senha
+                </Link>
+            </div>
+          )}
 
           <button 
             disabled={isLoading}

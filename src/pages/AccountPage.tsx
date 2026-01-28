@@ -8,38 +8,37 @@ export default function AccountPage() {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // MOCK DE PEDIDOS (Dados falsos para visualização por enquanto)
+  // MOCK DE PEDIDOS
   const [orders] = useState([
     { id: "EVO-9921", date: "26/01/2026", status: "Em Trânsito", total: 249.90, tracking: "BR123456789" },
     { id: "EVO-8810", date: "10/12/2025", status: "Entregue", total: 129.90, tracking: "BR987654321" },
   ]);
 
   useEffect(() => {
-    // Proteção de rota: Se não tiver logado, manda pro login
     if (!isAuthenticated) {
       navigate("/login");
     }
   }, [isAuthenticated, navigate]);
 
-  // Enquanto carrega ou se não tiver user, não mostra nada para evitar erros
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[#090909] font-sans selection:bg-red-600 selection:text-white pt-24">
+    // CORREÇÃO: Aumentei o padding-top para 'pt-36' para garantir que nada fique escondido
+    <div className="min-h-screen bg-[#090909] font-sans selection:bg-red-600 selection:text-white pt-36">
       
       {/* HEADER DA CONTA */}
-      <div className="max-w-[1280px] mx-auto px-6 mb-8">
+      <div className="max-w-[1280px] mx-auto px-6 mb-8 relative z-10">
          <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest mb-6">
             <ChevronLeft size={16} /> Voltar para a Loja
          </Link>
          <h1 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter">Minha Conta</h1>
       </div>
 
-      <div className="max-w-[1280px] mx-auto px-6 pb-20 grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="max-w-[1280px] mx-auto px-6 pb-20 grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
         
-        {/* COLUNA ESQUERDA: CARTÃO DO PERFIL */}
+        {/* COLUNA ESQUERDA: PERFIL */}
         <div className="space-y-6">
-          <div className="bg-[#111] border border-white/5 rounded-2xl p-6 shadow-xl sticky top-28">
+          <div className="bg-[#111] border border-white/5 rounded-2xl p-6 shadow-xl sticky top-32">
              <div className="flex items-center gap-4 mb-6">
                 <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center text-red-600 border border-white/5">
                    <UserIcon size={32} />
@@ -51,8 +50,6 @@ export default function AccountPage() {
              </div>
              
              <div className="space-y-4 border-t border-white/5 pt-4">
-                
-                {/* Endereço */}
                 <div>
                    <label className="text-[10px] font-black text-zinc-600 uppercase flex items-center gap-2 mb-2 tracking-widest">
                       <MapPin size={12} /> Endereço Principal
@@ -64,7 +61,6 @@ export default function AccountPage() {
                    )}
                 </div>
 
-                {/* Telefone (Adicionado agora) */}
                 <div>
                    <label className="text-[10px] font-black text-zinc-600 uppercase flex items-center gap-2 mb-2 tracking-widest mt-4">
                       <Phone size={12} /> Contato / WhatsApp
@@ -75,7 +71,6 @@ export default function AccountPage() {
                        <p className="text-zinc-500 text-xs italic">Nenhum telefone cadastrado.</p>
                    )}
                 </div>
-
              </div>
 
              <button 
@@ -90,6 +85,7 @@ export default function AccountPage() {
 
         {/* COLUNA DIREITA: PEDIDOS */}
         <div className="md:col-span-2 space-y-6">
+           {/* ... (Conteúdo dos pedidos mantido igual) ... */}
            <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xl font-black text-white uppercase tracking-wider flex items-center gap-2">
                     <Package className="text-red-600" size={24} /> 
