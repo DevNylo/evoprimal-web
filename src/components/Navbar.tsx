@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ShoppingCart, Search, Menu, X, ChevronDown } from "lucide-react";
+import { ShoppingCart, Search, Menu, X, ChevronDown, User, LogIn } from "lucide-react";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext"; // Importar Auth
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -11,6 +12,8 @@ export default function Navbar() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { cart, openCart } = useCart();
+  const { isAuthenticated, user } = useAuth(); // Pegar estado do usuário
+  
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -51,6 +54,12 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Função para navegar para login ou conta
+  const handleAccountClick = () => {
+    setIsMobileMenuOpen(false); // Fecha menu mobile se aberto
+    navigate(isAuthenticated ? "/minha-conta" : "/login");
+  };
+
   return (
     <>
       <header
@@ -85,10 +94,7 @@ export default function Navbar() {
                      <Link to="/categoria/whey-protein" className={getLinkClass("/categoria/whey-protein", true)}>Whey Protein</Link>
                      <Link to="/categoria/creatina" className={getLinkClass("/categoria/creatina", true)}>Creatina</Link>
                      <Link to="/categoria/pre-treino" className={getLinkClass("/categoria/pre-treino", true)}>Pré-Treino</Link>
-                     
-                     {/* NOVO ITEM ADICIONADO AQUI */}
                      <Link to="/categoria/beta-alanina" className={getLinkClass("/categoria/beta-alanina", true)}>Beta-Alanina</Link>
-                     
                      <Link to="/categoria/vitaminas" className={getLinkClass("/categoria/vitaminas", true)}>Vitaminas</Link>
                    </div>
                 </div>
@@ -98,7 +104,7 @@ export default function Navbar() {
             <Link to="/contato" className={getLinkClass("/contato")}>Contato</Link>
           </nav>
 
-          {/* ICONS */}
+          {/* ICONS & BOTOES */}
           <div className="flex items-center gap-3 relative z-50">
             {showSearch ? (
               <form onSubmit={handleSearchSubmit} className="relative animate-in fade-in slide-in-from-right-4 duration-300">
@@ -121,6 +127,36 @@ export default function Navbar() {
               </button>
             )}
 
+            {/* BOTÃO DA CONTA (O NOVO BOTÃO VERMELHO) */}
+            <button 
+              onClick={handleAccountClick}
+              className={`
+                 hidden md:flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-bold uppercase text-[10px] tracking-widest shadow-lg
+                 ${isAuthenticated 
+                    ? "bg-zinc-800 text-white hover:bg-zinc-700 border border-white/10" // Logado: Discreto
+                    : "bg-red-600 text-white hover:bg-red-500 hover:-translate-y-0.5 shadow-red-900/20" // Não logado: Vermelho Chamativo
+                 }
+              `}
+            >
+              {isAuthenticated ? (
+                 <>
+                   <User size={14} /> {user?.username?.split(" ")[0]}
+                 </>
+              ) : (
+                 <>
+                   <LogIn size={14} /> Minhas Compras
+                 </>
+              )}
+            </button>
+            
+            {/* ÍCONE MOBILE DA CONTA */}
+            <button 
+               onClick={handleAccountClick}
+               className="md:hidden text-white hover:text-red-500 p-2"
+            >
+               <User size={22} />
+            </button>
+
             <button onClick={openCart} className="relative group transition-colors p-2 text-zinc-300 hover:text-white drop-shadow-md">
               <ShoppingCart size={22} />
               {cart.length > 0 && (
@@ -142,13 +178,13 @@ export default function Navbar() {
          <Link to="/" className="text-2xl font-black uppercase text-white" onClick={() => setIsMobileMenuOpen(false)}>Início</Link>
          <Link to="/categoria/whey-protein" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Whey Protein</Link>
          <Link to="/categoria/creatina" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Creatina</Link>
-         <Link to="/categoria/pre-treino" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Pré-Treino</Link>
          
-         {/* NOVO ITEM MOBILE */}
-         <Link to="/categoria/beta-alanina" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Beta-Alanina</Link>
-         
-         <Link to="/categoria/vitaminas" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Vitaminas</Link>
-         <Link to="/ofertas" className="text-2xl font-black uppercase text-red-600" onClick={() => setIsMobileMenuOpen(false)}>Ofertas</Link>
+         {/* BOTÃO MOBILE ESPECÍFICO */}
+         <button onClick={handleAccountClick} className="text-2xl font-black uppercase text-red-600 border border-red-600/50 px-8 py-3 rounded-xl bg-red-600/10">
+            {isAuthenticated ? "Minha Conta" : "Entrar / Cadastrar"}
+         </button>
+
+         <Link to="/ofertas" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Ofertas</Link>
       </div>
     </>
   );
