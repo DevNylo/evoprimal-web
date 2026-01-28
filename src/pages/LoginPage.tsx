@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map, CheckCircle2, FileText, Search } from "lucide-react";
 
-// --- FUNÇÕES UTILITÁRIAS ---
+// --- FUNÇÕES UTILITÁRIAS (VALIDADORES E MÁSCARAS) ---
 
 const maskCPF = (value: string) => {
   return value
@@ -46,8 +46,8 @@ const maskCEP = (value: string) => {
 
 const validateName = (name: string) => {
   const regex = /^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/;
-  // Lista básica de bloqueio (palavras ofensivas)
-  const blockList = ["admin", "root", "teste", "merda", "porra", "caralho", "boceta", "puta"];
+  // Lista básica de bloqueio
+  const blockList = ["admin", "root", "teste", "merda", "porra", "caralho", "boceta", "puta", "viado"];
   
   if (!regex.test(name)) return "O nome não pode conter números ou símbolos.";
   if (name.trim().split(" ").length < 2) return "Por favor, insira nome e sobrenome.";
@@ -63,7 +63,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   
-  // ESTADO DO FORMULÁRIO
+  // ESTADO DO FORMULÁRIO (Campos individuais para o Strapi)
   const [formData, setFormData] = useState({ 
     username: "", 
     email: "", 
@@ -94,7 +94,7 @@ export default function LoginPage() {
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
   ];
 
-  // BUSCA CIDADES (IBGE) - Caso o usuário troque de UF manualmente
+  // BUSCA CIDADES (Fallback para IBGE caso mude UF manual)
   useEffect(() => {
     if (formData.state) {
         setLoadingCities(true);
@@ -122,7 +122,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (data.erro) {
-        throw new Error("CEP não encontrado."); // Isso não para o código, só vai pro catch
+        throw new Error("CEP não encontrado.");
       }
 
       setFormData(prev => ({
@@ -138,13 +138,13 @@ export default function LoginPage() {
 
     } catch (error) {
       console.error(error);
+      // Não mostramos erro na tela para permitir digitação manual se a API falhar
     } finally {
       setLoadingCep(false);
     }
   }
 
-  // --- CORREÇÃO DO TIPO AQUI ---
-  // Aceita tanto Input quanto Select
+  // HANDLE INPUT CHANGE (COM TIPAGEM CORRETA PARA SELECT E INPUT)
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     let formattedValue = value;
@@ -161,9 +161,10 @@ export default function LoginPage() {
     if (errorMessage.includes("Email is already taken")) return "Este e-mail já está cadastrado.";
     if (errorMessage.includes("Username is already taken")) return "Este nome de usuário já está em uso.";
     if (errorMessage.includes("cpf must be unique")) return "Este CPF já está cadastrado.";
-    if (errorMessage.includes("Invalid identifier or password")) return "E-mail ou senha incorretos.";
+    if (errorMessage.includes("identifier or password")) return "E-mail ou senha incorretos.";
     if (errorMessage.includes("password must be at least")) return "A senha deve ter no mínimo 6 caracteres.";
-    return "Ocorreu um erro. Verifique seus dados.";
+    // Erro genérico se não for um dos conhecidos
+    return errorMessage.length < 100 ? errorMessage : "Ocorreu um erro ao processar. Verifique os dados.";
   }
 
   function isValidEmail(email: string) {
@@ -175,7 +176,7 @@ export default function LoginPage() {
     setError("");
 
     if (isRegistering) {
-        // Validações Manuais
+        // --- VALIDAÇÕES ---
         if (!isValidEmail(formData.email)) {
             setError("Por favor, insira um e-mail válido.");
             return;
@@ -193,7 +194,7 @@ export default function LoginPage() {
         }
 
         if (formData.phone.length < 14) { 
-             setError("Telefone incompleto. Use o formato (DD) 9XXXX-XXXX");
+             setError("Telefone incompleto.");
              return;
         }
 
@@ -207,14 +208,21 @@ export default function LoginPage() {
 
     try {
       if (isRegistering) {
-        // --- CADASTRO ---
-        
-        // 1. Criar Usuário
+        // --- CADASTRO COMPLETO (CAMPOS SEPARADOS) ---
         const registerPayload = { 
             username: formData.username, 
             email: formData.email, 
             password: formData.password,
-            cpf: formData.cpf // Enviando formatado (recomendado se for String no Strapi)
+            // Campos Extras (Devem existir no Strapi User Content-Type)
+            cpf: formData.cpf,
+            phone: formData.phone,
+            cep: formData.cep,
+            street: formData.street,
+            number: formData.number,
+            neighborhood: formData.neighborhood,
+            city: formData.city,
+            state: formData.state,
+            complement: formData.complement
         };
 
         const resRegister = await fetch(`${API_URL}/auth/local/register`, {
@@ -223,39 +231,21 @@ export default function LoginPage() {
             body: JSON.stringify(registerPayload),
         });
 
-        const dataRegister = await resRegister.json();
+        // Tenta ler o JSON. Se falhar (HTML 500), cai no catch.
+        const responseText = await resRegister.text();
+        let dataRegister;
+        try {
+            dataRegister = JSON.parse(responseText);
+        } catch (e) {
+            console.error("Resposta não-JSON do servidor:", responseText);
+            throw new Error("Erro no servidor. Verifique se criou os campos (cpf, cep, etc) no Strapi.");
+        }
 
         if (!resRegister.ok) {
-            throw new Error(translateError(dataRegister.error?.message || JSON.stringify(dataRegister)));
+            throw new Error(translateError(dataRegister.error?.message || "Erro desconhecido"));
         }
 
-        // 2. Atualizar Dados Extras (Endereço/Telefone)
-        const jwt = dataRegister.jwt;
-        const userId = dataRegister.user.id;
-        
-        const fullAddress = `${formData.street}, ${formData.number} - ${formData.neighborhood} - ${formData.city}/${formData.state} - CEP: ${formData.cep} ${formData.complement ? '(' + formData.complement + ')' : ''}`;
-        
-        const updatePayload = {
-            phone: formData.phone,
-            address: fullAddress
-        };
-
-        const resUpdate = await fetch(`${API_URL}/users/${userId}`, {
-            method: "PUT",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${jwt}`
-            },
-            body: JSON.stringify(updatePayload),
-        });
-
-        if (!resUpdate.ok) {
-            console.warn("Conta criada, mas falha ao salvar endereço extra.", await resUpdate.json());
-        } else {
-             dataRegister.user.phone = formData.phone;
-             dataRegister.user.address = fullAddress;
-        }
-
+        // Sucesso
         if (dataRegister.user.confirmed === false) {
             setEmailSent(true);
         } else {
@@ -276,7 +266,7 @@ export default function LoginPage() {
         const data = await res.json();
 
         if (!res.ok) {
-            throw new Error(translateError(data.error?.message || JSON.stringify(data)));
+            throw new Error(translateError(data.error?.message || "Erro ao entrar"));
         }
 
         login(data.jwt, data.user);
@@ -291,7 +281,7 @@ export default function LoginPage() {
     }
   }
 
-  // TELA SUCESSO
+  // TELA DE SUCESSO DO CADASTRO
   if (emailSent) {
       return (
         <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white pt-20">
@@ -299,7 +289,9 @@ export default function LoginPage() {
                 <CheckCircle2 className="text-green-500 w-16 h-16 mx-auto mb-4" />
                 <h2 className="text-2xl font-black uppercase mb-2">Conta Criada!</h2>
                 <p className="text-zinc-400 mb-6 text-sm">
-                    Sua conta foi criada. Verifique seu e-mail se necessário.
+                    Enviamos um link de confirmação para <strong>{formData.email}</strong>.
+                    <br/>
+                    Verifique sua caixa de entrada (ou spam).
                 </p>
                 <button 
                     onClick={() => { setEmailSent(false); setIsRegistering(false); }}
@@ -321,13 +313,13 @@ export default function LoginPage() {
          </Link>
       </div>
 
-      <div className="w-full max-w-lg bg-[#111] border border-white/5 p-8 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-300 relative z-10">
+      <div className={`w-full ${isRegistering ? 'max-w-2xl' : 'max-w-lg'} bg-[#111] border border-white/5 p-8 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-300 relative z-10 transition-all`}>
         <div className="text-center mb-8">
             <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">
             {isRegistering ? "Criar Conta" : "Acessar Conta"}
             </h2>
             <p className="text-zinc-500 text-sm">
-            {isRegistering ? "Junte-se à Evo" : "Seja bem vindo a Evo"}
+            {isRegistering ? "Dados completos para entrega" : "Bem-vindo de volta"}
             </p>
         </div>
 
@@ -342,37 +334,34 @@ export default function LoginPage() {
           {isRegistering && (
             <>
               {/* --- DADOS PESSOAIS --- */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Nome Completo</label>
-                <div className="relative group">
-                  <User className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
-                  <input 
-                    type="text" 
-                    name="username" 
-                    required
-                    className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
-                    placeholder="Nome e Sobrenome"
-                    value={formData.username}
-                    onChange={handleInputChange} 
-                  />
-                </div>
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <div className="relative group">
+                      <User className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
+                      <input 
+                        type="text" name="username" required
+                        className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
+                        placeholder="Nome e Sobrenome"
+                        value={formData.username}
+                        onChange={handleInputChange} 
+                      />
+                    </div>
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">CPF</label>
-                <div className="relative group">
-                  <FileText className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
-                  <input 
-                    type="text" 
-                    name="cpf"
-                    required
-                    maxLength={14}
-                    className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
-                    placeholder="000.000.000-00"
-                    value={formData.cpf}
-                    onChange={handleInputChange}
-                  />
-                </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">CPF</label>
+                    <div className="relative group">
+                      <FileText className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
+                      <input 
+                        type="text" name="cpf" required maxLength={14}
+                        className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
+                        placeholder="000.000.000-00"
+                        value={formData.cpf}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                  </div>
               </div>
 
               <div className="space-y-1">
@@ -380,10 +369,7 @@ export default function LoginPage() {
                 <div className="relative group">
                   <Phone className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                   <input 
-                    type="tel" 
-                    name="phone"
-                    required
-                    maxLength={15}
+                    type="tel" name="phone" required maxLength={15}
                     className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                     placeholder="(00) 90000-0000"
                     value={formData.phone}
@@ -392,21 +378,18 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* --- ENDEREÇO --- */}
+              {/* --- ENDEREÇO (LAYOUT REVISADO) --- */}
               <div className="pt-4 border-t border-white/5">
                  <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-4">Endereço de Entrega</p>
                  
+                 {/* LINHA 1: CEP + RUA */}
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                    {/* CEP */}
                     <div className="space-y-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">CEP</label>
                         <div className="relative group">
                             <Search className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                             <input 
-                                type="text" 
-                                name="cep"
-                                required
-                                maxLength={9}
+                                type="text" name="cep" required maxLength={9}
                                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                                 placeholder="00000-000"
                                 value={formData.cep}
@@ -416,18 +399,14 @@ export default function LoginPage() {
                             {loadingCep && <div className="absolute right-3 top-3.5"><Loader2 size={18} className="animate-spin text-red-600"/></div>}
                         </div>
                     </div>
-
-                    {/* RUA */}
                     <div className="space-y-1 md:col-span-2">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Rua / Logradouro</label>
                         <div className="relative group">
                             <MapPin className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                             <input 
-                                type="text" 
-                                name="street"
-                                required
+                                type="text" name="street" required
                                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
-                                placeholder="Ex: Av. Paulista"
+                                placeholder="Rua..."
                                 value={formData.street}
                                 onChange={handleInputChange}
                             />
@@ -435,16 +414,14 @@ export default function LoginPage() {
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                    <div className="space-y-1">
+                 {/* LINHA 2: NÚMERO + COMPLEMENTO */}
+                 <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="space-y-1 col-span-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Número</label>
                         <div className="relative group">
                         <Hash className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                         <input 
-                            id="numberInput"
-                            type="text" 
-                            name="number"
-                            required
+                            id="numberInput" type="text" name="number" required
                             className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                             placeholder="123"
                             value={formData.number}
@@ -452,49 +429,64 @@ export default function LoginPage() {
                         />
                         </div>
                     </div>
-                    
-                    <div className="space-y-1">
+                    <div className="space-y-1 col-span-2">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Complemento (Opcional)</label>
+                        <div className="relative group">
+                        <Home className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
+                        <input 
+                            type="text" name="complement"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
+                            placeholder="Apto 10..."
+                            value={formData.complement}
+                            onChange={handleInputChange}
+                        />
+                        </div>
+                    </div>
+                 </div>
+
+                 {/* LINHA 3: BAIRRO + CIDADE + UF (Grid balanceado) */}
+                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
+                    {/* Bairro ocupa 2 colunas */}
+                    <div className="space-y-1 md:col-span-2">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Bairro</label>
                         <div className="relative group">
                         <Map className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                         <input 
-                            type="text" 
-                            name="neighborhood"
-                            required
+                            type="text" name="neighborhood" required
                             className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
-                            placeholder="Centro"
+                            placeholder="Bairro"
                             value={formData.neighborhood}
                             onChange={handleInputChange}
                         />
                         </div>
                     </div>
-
-                    <div className="space-y-1">
+                    
+                    {/* Cidade ocupa 2 colunas */}
+                    <div className="space-y-1 md:col-span-2">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Cidade</label>
                         <select 
-                                required
-                                name="city"
-                                disabled={!formData.state || loadingCities}
-                                className="w-full bg-black/50 border border-white/10 rounded-xl py-3 px-3 text-white focus:border-red-600 focus:outline-none transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                                value={formData.city}
-                                onChange={handleInputChange}
-                            >
-                                <option value="" disabled>
-                                    {loadingCities ? "..." : (formData.state ? "Selecione..." : "UF")}
+                            required name="city"
+                            disabled={!formData.state || loadingCities}
+                            className="w-full bg-black/50 border border-white/10 rounded-xl py-3 px-3 text-white focus:border-red-600 focus:outline-none transition-all appearance-none cursor-pointer disabled:opacity-50 text-sm truncate"
+                            value={formData.city}
+                            onChange={handleInputChange}
+                        >
+                            <option value="" disabled>
+                                {loadingCities ? "..." : (formData.state ? "Selecione..." : "UF")}
+                            </option>
+                            {cities.map((city: any) => (
+                                <option key={city.id} value={city.nome} className="bg-zinc-900 text-white">
+                                    {city.nome}
                                 </option>
-                                {cities.map((city: any) => (
-                                    <option key={city.id} value={city.nome} className="bg-zinc-900 text-white">
-                                        {city.nome}
-                                    </option>
-                                ))}
-                            </select>
+                            ))}
+                        </select>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* UF ocupa 1 coluna */}
+                    <div className="space-y-1 md:col-span-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">UF</label>
                         <select 
-                            required
-                            name="state"
+                            required name="state"
                             className="w-full bg-black/50 border border-white/10 rounded-xl py-3 px-3 text-white focus:border-red-600 focus:outline-none transition-all appearance-none cursor-pointer text-sm"
                             value={formData.state}
                             onChange={(e) => setFormData({...formData, state: e.target.value, city: ""})}
@@ -506,22 +498,6 @@ export default function LoginPage() {
                         </select>
                     </div>
                  </div>
-
-                 <div className="space-y-1 mb-3">
-                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Comp. (Opcional)</label>
-                    <div className="relative group">
-                    <Home className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
-                    <input 
-                        type="text" 
-                        name="complement"
-                        className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
-                        placeholder="Apto 10"
-                        value={formData.complement}
-                        onChange={handleInputChange}
-                    />
-                    </div>
-                 </div>
-
               </div>
             </>
           )}
@@ -532,9 +508,7 @@ export default function LoginPage() {
             <div className="relative group">
               <Mail className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
               <input 
-                type="email" 
-                name="email"
-                required
+                type="email" name="email" required
                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                 placeholder="seu@email.com"
                 value={formData.email}
@@ -548,10 +522,7 @@ export default function LoginPage() {
             <div className="relative group">
               <Lock className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
               <input 
-                type="password" 
-                name="password"
-                required
-                minLength={6}
+                type="password" name="password" required minLength={6}
                 className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                 placeholder="******"
                 value={formData.password}
@@ -566,9 +537,7 @@ export default function LoginPage() {
                 <div className="relative group">
                 <Lock className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                 <input 
-                    type="password" 
-                    name="confirmPassword"
-                    required
+                    type="password" name="confirmPassword" required
                     className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700"
                     placeholder="Repita a senha"
                     value={formData.confirmPassword}
@@ -580,10 +549,7 @@ export default function LoginPage() {
 
           {!isRegistering && (
             <div className="flex justify-end pt-2">
-                <Link 
-                    to="/esqueci-senha" 
-                    className="text-zinc-500 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest transition-colors"
-                >
+                <Link to="/esqueci-senha" className="text-zinc-500 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest transition-colors">
                     Esqueci minha senha
                 </Link>
             </div>
