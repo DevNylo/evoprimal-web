@@ -7,7 +7,6 @@ export default function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  // ESTADO DOS DADOS
   const [formData, setFormData] = useState({ 
     username: "", 
     email: "", 
@@ -20,22 +19,19 @@ export default function LoginPage() {
     state: ""
   });
 
-  // ESTADO PARA AS LISTAS DO IBGE
   const [cities, setCities] = useState<{ nome: string }[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
-  
   const [error, setError] = useState("");
+  
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const API_URL = "https://evoprimal-api.onrender.com/api"; 
-
-  // LISTA DE ESTADOS BRASILEIROS
+  
   const ufs = [
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
   ];
 
-  // EFEITO: BUSCAR CIDADES QUANDO O ESTADO MUDA
   useEffect(() => {
     if (formData.state) {
         setLoadingCities(true);
@@ -51,6 +47,16 @@ export default function LoginPage() {
     }
   }, [formData.state]);
 
+  // --- FUNÇÃO DE TRADUÇÃO DE ERROS ---
+  function translateError(errorMessage: string) {
+    if (errorMessage.includes("Email is already taken")) return "Este e-mail já está cadastrado.";
+    if (errorMessage.includes("Username is already taken")) return "Este nome de usuário já está em uso.";
+    if (errorMessage.includes("Invalid identifier or password")) return "E-mail ou senha incorretos.";
+    if (errorMessage.includes("password must be at least")) return "A senha deve ter no mínimo 6 caracteres.";
+    if (errorMessage.includes("Invalid parameters")) return "Erro de sistema: Campos inválidos no servidor (Aguarde o Deploy).";
+    return "Ocorreu um erro. Verifique seus dados e tente novamente.";
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -62,7 +68,6 @@ export default function LoginPage() {
       let payload;
 
       if (isRegistering) {
-        // Monta o endereço completo
         const fullAddress = `${formData.street}, ${formData.number}${formData.complement ? ' - ' + formData.complement : ''} - ${formData.city}/${formData.state}`;
 
         payload = { 
@@ -85,16 +90,18 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        const errorMessage = data.error?.message || "Falha na autenticação.";
-        throw new Error(errorMessage);
+        // Usa a nossa função de tradução aqui
+        const originalError = data.error?.message || "";
+        throw new Error(translateError(originalError));
       }
 
       login(data.jwt, data.user);
       navigate("/minha-conta");
 
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Ocorreu um erro. Verifique seus dados.");
+      console.error("Erro Login:", err);
+      // Exibe o erro já traduzido
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
@@ -114,16 +121,15 @@ export default function LoginPage() {
             <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">
             {isRegistering ? "Criar Conta" : "Acessar Conta"}
             </h2>
-            {/* TEXTOS ATUALIZADOS */}
             <p className="text-zinc-500 text-sm">
             {isRegistering ? "Junte-se à Evo" : "Seja bem vindo a Evo"}
             </p>
         </div>
 
         {error && (
-          <div className="bg-red-900/10 border border-red-600/20 text-red-500 p-4 rounded-lg mb-6 text-xs font-bold flex items-center gap-3">
-            <AlertCircle size={16} />
-            {error}
+          <div className="bg-red-900/10 border border-red-600/20 text-red-500 p-4 rounded-lg mb-6 text-xs font-bold flex items-center gap-3 animate-pulse">
+            <AlertCircle size={16} className="shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
@@ -239,7 +245,6 @@ export default function LoginPage() {
                         <div className="relative group">
                             <Map className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                             
-                            {/* Ícone de Loading da Cidade */}
                             {loadingCities && <Loader2 className="absolute right-3 top-3.5 animate-spin text-red-600" size={18} />}
                             
                             <select 
