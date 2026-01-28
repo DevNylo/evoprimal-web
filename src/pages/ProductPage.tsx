@@ -1,24 +1,27 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useStore } from "../context/StoreContext";
 import { useCart } from "../context/CartContext";
-// REMOVIDO: ArrowRight que não estava sendo usado
 import { ShoppingCart, ChevronLeft, Star, Truck, ShieldCheck, CreditCard, QrCode, Loader2 } from "lucide-react";
 import Footer from "../components/Footer";
 
 export default function ProductPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { products } = useStore();
   const { addToCart, openCart } = useCart();
   const [product, setProduct] = useState<any>(null);
   
-  // REMOVIDO: O estado 'selectedImage' que estava travando o build
+  // --- CÓDIGO DA GALERIA (Comentado para não travar o Build) ---
+  // Quando você for criar a galeria, basta remover as barras '//' abaixo:
+  // const [selectedImage, setSelectedImage] = useState(0);
 
   useEffect(() => {
     const found = products.find((p) => p.id === Number(id));
     setProduct(found);
     
-    // Rola para o topo
+    // setSelectedImage(0); // Comentado
+    
     window.scrollTo(0, 0);
   }, [id, products]);
 
@@ -31,7 +34,7 @@ export default function ProductPage() {
   }
 
   // --- CÁLCULOS FINANCEIROS ---
-  const discountPix = 0.10; // 10%
+  const discountPix = 0.10;
   const pricePix = product.price * (1 - discountPix);
   const maxInstallments = 6;
   const installmentValue = product.price / maxInstallments;
@@ -42,9 +45,12 @@ export default function ProductPage() {
       
       {/* BREADCRUMB / VOLTAR */}
       <div className="max-w-[1280px] mx-auto px-6 py-6">
-         <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest">
-            <ChevronLeft size={16} /> Voltar para a Loja
-         </Link>
+         <button 
+            onClick={() => navigate(-1)} 
+            className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest bg-transparent border-none cursor-pointer"
+         >
+            <ChevronLeft size={16} /> Voltar
+         </button>
       </div>
 
       <div className="max-w-[1280px] mx-auto px-6 pb-20">
@@ -99,7 +105,6 @@ export default function ProductPage() {
              {/* BLOCO DE PREÇO E PAGAMENTO */}
              <div className="bg-[#111] border border-white/5 rounded-2xl p-6 mb-8 shadow-xl">
                  
-                 {/* Preço "De / Por" */}
                  <div className="flex items-end gap-3 mb-2">
                     {product.oldPrice && (
                         <span className="text-zinc-500 line-through text-lg decoration-red-600/50">
@@ -111,7 +116,6 @@ export default function ProductPage() {
                     </span>
                  </div>
 
-                 {/* Informações de Pagamento */}
                  <div className="space-y-3 pt-4 border-t border-white/5">
                     
                     {/* PIX */}
@@ -155,10 +159,8 @@ export default function ProductPage() {
                  </button>
              </div>
 
-             {/* INFO BOXES (FRETE E GARANTIA) */}
+             {/* INFO BOXES */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* Box Frete */}
                 <div className="bg-[#111] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
                     <div className="w-10 h-10 bg-zinc-900 rounded-lg flex items-center justify-center text-red-600 shrink-0 group-hover:scale-110 transition-transform">
                         <Truck size={20} />
@@ -171,7 +173,6 @@ export default function ProductPage() {
                     </div>
                 </div>
 
-                {/* Box Garantia */}
                 <div className="bg-[#111] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
                     <div className="w-10 h-10 bg-zinc-900 rounded-lg flex items-center justify-center text-red-600 shrink-0 group-hover:scale-110 transition-transform">
                         <ShieldCheck size={20} />
@@ -183,7 +184,6 @@ export default function ProductPage() {
                         </p>
                     </div>
                 </div>
-
              </div>
           </div>
         </div>
