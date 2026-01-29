@@ -3,7 +3,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map, CheckCircle2, FileText, Search } from "lucide-react";
 
-// --- MÁSCARAS E VALIDAÇÕES ---
+// ==========================================
+// MÁSCARAS E VALIDADORES
+// ==========================================
 const maskCPF = (value: string) => value.replace(/\D/g, "").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})/, "$1-$2").replace(/(-\d{2})\d+?$/, "$1");
 
 const validateCPF = (cpf: string) => {
@@ -21,16 +23,18 @@ const maskPhone = (value: string) => value.replace(/\D/g, "").replace(/^(\d{2})(
 const maskCEP = (value: string) => value.replace(/\D/g, "").replace(/^(\d{5})(\d)/, "$1-$2").slice(0, 9);
 
 const validateName = (name: string) => {
-  if (name.trim().split(" ").length < 2) return "Por favor, insira nome e sobrenome.";
+  if (!name || name.trim().split(" ").length < 2) return "Por favor, insira nome e sobrenome.";
   return null;
 };
 
+// ==========================================
+// COMPONENTE PRINCIPAL
+// ==========================================
 export default function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   
-  // FORM DATA
   const [formData, setFormData] = useState({ 
     full_name: "", email: "", password: "", confirmPassword: "",
     phone: "", cpf: "", cep: "", street: "", number: "", neighborhood: "", complement: "", city: "", state: ""
@@ -44,13 +48,12 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // URL FIXA PARA API
   const BASE_ENV_URL = import.meta.env.VITE_API_URL || "https://evoprimal-api.onrender.com";
   const API_URL = BASE_ENV_URL.endsWith("/api") ? BASE_ENV_URL : `${BASE_ENV_URL}/api`;
 
   const ufs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
-  // BUSCA CIDADES IBGE
+  // --- EFEITOS ---
   useEffect(() => {
     if (formData.state) {
         setLoadingCities(true);
@@ -59,7 +62,7 @@ export default function LoginPage() {
     } else { setCities([]); }
   }, [formData.state]);
 
-  // BUSCA VIACEP
+  // --- HANDLERS ---
   async function handleCepBlur(e: React.FocusEvent<HTMLInputElement>) {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -90,47 +93,65 @@ export default function LoginPage() {
   };
 
   function translateError(errorMessage: string) {
-    if (errorMessage.includes("Email is already taken")) return "Este e-mail já está cadastrado.";
-    if (errorMessage.includes("Username is already taken")) return "Este nome de usuário já está em uso.";
-    if (errorMessage.includes("cpf must be unique")) return "Este CPF já está cadastrado.";
-    if (errorMessage.includes("identifier or password")) return "E-mail ou senha incorretos.";
-    if (errorMessage.includes("password must be at least")) return "A senha deve ter no mínimo 6 caracteres.";
-    if (errorMessage.includes("confirmed")) return "Você precisa confirmar seu e-mail antes de entrar.";
+    if (!errorMessage) return "Erro desconhecido.";
+    const msg = errorMessage.toLowerCase();
+    if (msg.includes("email") && msg.includes("taken")) return "Este e-mail já está cadastrado.";
+    if (msg.includes("username") && msg.includes("taken")) return "Este usuário já existe.";
+    if (msg.includes("cpf") && msg.includes("unique")) return "Este CPF já está em uso.";
+    if (msg.includes("identifier") || msg.includes("password")) return "E-mail ou senha incorretos.";
+    if (msg.includes("confirmed")) return "Você precisa confirmar seu e-mail antes de entrar.";
     return errorMessage.length < 100 ? errorMessage : "Erro ao processar. Tente novamente.";
   }
 
   function isValidEmail(email: string) { return /\S+@\S+\.\S+/.test(email); }
 
+  // ==========================================
+  // LÓGICA DE SUBMIT (LOGIN E CADASTRO)
+  // ==========================================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    console.log("🟢 SUBMIT DISPARADO. Modo:", isRegistering ? "CADASTRO" : "LOGIN");
 
+    // 1. VALIDAÇÕES APENAS PARA CADASTRO
     if (isRegistering) {
-        if (!isValidEmail(formData.email)) { setError("Por favor, insira um e-mail válido."); return; }
-        const nameError = validateName(formData.full_name); if (nameError) { setError(nameError); return; }
-        if (!validateCPF(formData.cpf)) { setError("CPF inválido."); return; }
-        if (formData.phone.length < 14) { setError("Telefone incompleto."); return; }
-        if (formData.password !== formData.confirmPassword) { setError("As senhas não coincidem."); return; }
+        if (!isValidEmail(formData.email)) { 
+            console.warn("⛔ Bloqueio: Email inválido");
+            setError("Por favor, insira um e-mail válido."); return; 
+        }
+        
+        const nameError = validateName(formData.full_name); 
+        if (nameError) { 
+            console.warn("⛔ Bloqueio: Nome inválido");
+            setError(nameError); return; 
+        }
+
+        if (!validateCPF(formData.cpf)) { 
+            console.warn("⛔ Bloqueio: CPF inválido");
+            setError("CPF inválido."); return; 
+        }
+
+        if (formData.phone.length < 14) { 
+            console.warn("⛔ Bloqueio: Telefone curto");
+            setError("Telefone incompleto."); return; 
+        }
+
+        if (formData.password !== formData.confirmPassword) { 
+            console.warn("⛔ Bloqueio: Senhas diferentes");
+            setError("As senhas não coincidem."); return; 
+        }
     }
 
+    // 2. ENVIO DE DADOS
     setIsLoading(true);
 
     try {
       if (isRegistering) {
-        // =========================================================
-        // CADASTRO UNIFICADO (Passo Único)
-        // =========================================================
-        console.log("🚀 Iniciando cadastro unificado...");
-
-        // Montamos um objeto ÚNICO com tudo.
-        // O "strapi-server.js" no backend vai interceptar e salvar os extras.
+        // --- CADASTRO COMPLETO (1 PASSO) ---
         const payload = { 
-            // Dados de Autenticação
-            username: formData.email, // Username técnico (usamos email para ser único)
+            username: formData.email, // Username técnico
             email: formData.email, 
             password: formData.password,
-
-            // Dados de Perfil e Endereço (Backend Customizado)
             full_name: formData.full_name,
             cpf: formData.cpf,
             phone: formData.phone,
@@ -143,45 +164,52 @@ export default function LoginPage() {
             complement: formData.complement
         };
 
-        const resRegister = await fetch(`${API_URL}/auth/local/register`, {
+        console.log("🚀 Enviando Payload de Cadastro:", payload);
+
+        const res = await fetch(`${API_URL}/auth/local/register`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
         });
 
-        const dataRegister = await resRegister.json();
+        const data = await res.json();
 
-        if (!resRegister.ok) {
-            console.error("❌ Erro no Cadastro:", dataRegister);
-            throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta."));
+        if (!res.ok) {
+            console.error("❌ Erro API Cadastro:", data);
+            throw new Error(translateError(data.error?.message || "Erro ao criar conta."));
         }
 
-        console.log("✅ Cadastro realizado com sucesso! ID:", dataRegister.user?.id);
+        console.log("🎉 Cadastro Sucesso! ID:", data.user?.id);
         setEmailSent(true);
 
       } else {
-        // =========================================================
-        // LOGIN (Mantido padrão)
-        // =========================================================
+        // --- LOGIN ---
+        console.log("🚀 Tentando Login com:", formData.email);
+        
         const res = await fetch(`${API_URL}/auth/local`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ identifier: formData.email, password: formData.password }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(translateError(data.error?.message || "Erro ao entrar"));
         
-        // O login bem sucedido retorna o usuário e o token
+        const data = await res.json();
+        
+        if (!res.ok) {
+            console.error("❌ Erro API Login:", data);
+            throw new Error(translateError(data.error?.message || "Erro ao entrar"));
+        }
+
+        console.log("🎉 Login Sucesso!");
         login(data.jwt, data.user); 
         navigate("/minha-conta");
       }
     } catch (err: any) { 
-        console.error("Erro Geral:", err); 
+        console.error("💥 Erro Geral:", err); 
         setError(err.message); 
     } finally { 
         setIsLoading(false); 
     }
   }
 
-  // TELA DE SUCESSO (E-MAIL ENVIADO)
+  // TELA DE SUCESSO DO EMAIL
   if (emailSent) {
       return (
         <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white pt-20">
@@ -189,9 +217,7 @@ export default function LoginPage() {
                 <CheckCircle2 className="text-green-500 w-16 h-16 mx-auto mb-4" />
                 <h2 className="text-2xl font-black uppercase mb-2">Conta Criada!</h2>
                 <p className="text-zinc-400 mb-6 text-sm">
-                    Enviamos um link de confirmação para <strong>{formData.email}</strong>.
-                    <br/><br/>
-                    Verifique sua caixa de entrada e SPAM para ativar sua conta.
+                    Verifique seu e-mail (Caixa de Entrada ou Spam) para ativar a conta.
                 </p>
                 <button onClick={() => { setEmailSent(false); setIsRegistering(false); }} className="bg-red-600 hover:bg-red-500 text-white font-bold uppercase py-3 px-8 rounded-xl transition-colors w-full">Voltar para Login</button>
             </div>
@@ -211,14 +237,13 @@ export default function LoginPage() {
             <p className="text-zinc-500 text-sm">{isRegistering ? "Dados completos para entrega" : "Bem-vindo de volta"}</p>
         </div>
 
-        {/* --- AVISO DE SEGURANÇA (AMARELO) --- */}
         {isRegistering && (
           <div className="mb-6 bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl flex items-start gap-3">
              <AlertCircle className="text-yellow-500 shrink-0 mt-0.5" size={18} />
              <div>
                <h4 className="text-yellow-500 font-bold text-xs uppercase tracking-wider mb-1">Atenção aos dados</h4>
                <p className="text-zinc-400 text-xs leading-snug">
-                 Preencha com atenção! Para sua segurança, <strong>CPF e Endereço não poderão ser alterados</strong> após a criação da conta sem contatar o suporte.
+                 Preencha com atenção! <strong>CPF e Endereço não poderão ser alterados</strong> após a criação da conta.
                </p>
              </div>
           </div>
@@ -331,12 +356,19 @@ export default function LoginPage() {
           {!isRegistering && (
             <div className="flex justify-end pt-2"><Link to="/esqueci-senha" className="text-zinc-500 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest transition-colors">Esqueci minha senha</Link></div>
           )}
-          <button disabled={isLoading} className="w-full bg-red-600 hover:bg-red-500 text-white font-black uppercase tracking-[0.2em] py-4 rounded-xl transition-all mt-6 flex items-center justify-center gap-2 hover:-translate-y-1 shadow-[0_0_20px_rgba(220,38,38,0.3)] disabled:opacity-50 disabled:cursor-not-allowed">
+          
+          {/* BOTÃO COM TYPE SUBMIT EXPLÍCITO */}
+          <button 
+            type="submit" 
+            disabled={isLoading} 
+            className="w-full bg-red-600 hover:bg-red-500 text-white font-black uppercase tracking-[0.2em] py-4 rounded-xl transition-all mt-6 flex items-center justify-center gap-2 hover:-translate-y-1 shadow-[0_0_20px_rgba(220,38,38,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             {isLoading ? <Loader2 className="animate-spin" size={20} /> : (isRegistering ? "Cadastrar" : "Entrar")}
           </button>
         </form>
+
         <div className="mt-8 text-center pt-6 border-t border-white/5">
-          <button onClick={() => { setError(""); setIsRegistering(!isRegistering); }} className="text-zinc-500 text-xs hover:text-white transition-colors hover:underline uppercase tracking-wide font-bold">
+          <button type="button" onClick={() => { setError(""); setIsRegistering(!isRegistering); }} className="text-zinc-500 text-xs hover:text-white transition-colors hover:underline uppercase tracking-wide font-bold">
             {isRegistering ? "Já tem conta? Faça login" : "Não tem conta? Crie agora"}
           </button>
         </div>
