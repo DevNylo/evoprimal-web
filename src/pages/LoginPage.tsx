@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map, CheckCircle2, FileText, Search } from "lucide-react";
 
-// --- FUNÇÕES UTILITÁRIAS (VALIDADORES E MÁSCARAS) ---
+// --- MÁSCARAS E VALIDAÇÕES ---
 const maskCPF = (value: string) => value.replace(/\D/g, "").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})/, "$1-$2").replace(/(-\d{2})\d+?$/, "$1");
 
 const validateCPF = (cpf: string) => {
@@ -30,7 +30,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   
-  // FORM DATA: full_name substitui username na interface
+  // FORM DATA
   const [formData, setFormData] = useState({ 
     full_name: "", email: "", password: "", confirmPassword: "",
     phone: "", cpf: "", cep: "", street: "", number: "", neighborhood: "", complement: "", city: "", state: ""
@@ -44,7 +44,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // --- BLINDAGEM DE URL ---
+  // URL FIXA PARA API
   const BASE_ENV_URL = import.meta.env.VITE_API_URL || "https://evoprimal-api.onrender.com";
   const API_URL = BASE_ENV_URL.endsWith("/api") ? BASE_ENV_URL : `${BASE_ENV_URL}/api`;
 
@@ -117,31 +117,38 @@ export default function LoginPage() {
 
     try {
       if (isRegistering) {
-        // --- PASSO 1: CADASTRO BÁSICO ---
-        // Usamos o E-mail como Username para garantir unicidade
-        const basicRegisterPayload = { 
-            username: formData.email, 
+        // =========================================================
+        // PASSO 1: CRIAR CONTA BÁSICA
+        // =========================================================
+        console.log("🚀 Passo 1: Criando usuário básico...");
+        const basicPayload = { 
+            username: formData.email, // Usa EMAIL como username para evitar duplicidade
             email: formData.email, 
             password: formData.password 
         };
 
         const resRegister = await fetch(`${API_URL}/auth/local/register`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(basicRegisterPayload),
+            body: JSON.stringify(basicPayload),
         });
 
         const dataRegister = await resRegister.json();
 
         if (!resRegister.ok) {
+            console.error("❌ Erro no Passo 1:", dataRegister);
             throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta."));
         }
 
-        // --- PASSO 2: ATUALIZAÇÃO DE DADOS EXTRAS ---
+        console.log("✅ Passo 1 Sucesso! ID:", dataRegister.user.id);
+        
+        // =========================================================
+        // PASSO 2: ATUALIZAR COM DADOS EXTRAS
+        // =========================================================
         const jwt = dataRegister.jwt;
         const userId = dataRegister.user.id;
 
-        const extraDataPayload = {
-            full_name: formData.full_name, // Nome real vai aqui
+        const extraData = {
+            full_name: formData.full_name,
             cpf: formData.cpf,
             phone: formData.phone,
             cep: formData.cep,
@@ -153,22 +160,32 @@ export default function LoginPage() {
             complement: formData.complement
         };
 
+        console.log("🚀 Passo 2: Salvando dados extras...", extraData);
+
         const resUpdate = await fetch(`${API_URL}/users/${userId}`, {
             method: "PUT",
             headers: { 
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${jwt}` 
+                "Authorization": `Bearer ${jwt}` // FUNDAMENTAL PARA FUNCIONAR
             },
-            body: JSON.stringify(extraDataPayload),
+            body: JSON.stringify(extraData),
         });
 
+        const dataUpdate = await resUpdate.json();
+
         if (!resUpdate.ok) {
-            console.warn("Conta criada, mas erro ao salvar dados extras:", await resUpdate.json());
+            console.error("❌ Erro Crítico no Passo 2 (Endereço/CPF não salvo):", dataUpdate);
+            // IMPORTANTE: Se der erro 403 aqui, é porque falta a permissão "Update" no Strapi
+            console.warn("DICA: Verifique no Strapi Admin > Settings > Roles > Authenticated > User > Update");
         } else {
-            // Atualiza localmente
-            Object.assign(dataRegister.user, extraDataPayload);
+            console.log("✅ Passo 2 Sucesso! Dados completos salvos.");
+            // Mescla os dados novos no objeto do usuário local
+            Object.assign(dataRegister.user, dataUpdate);
         }
 
+        // =========================================================
+        // FINALIZAÇÃO
+        // =========================================================
         if (dataRegister.user.confirmed === false) { 
             setEmailSent(true); 
         } else { 
@@ -189,13 +206,14 @@ export default function LoginPage() {
         navigate("/minha-conta");
       }
     } catch (err: any) { 
-        console.error("Erro capturado:", err); 
+        console.error("Erro Geral:", err); 
         setError(err.message); 
     } finally { 
         setIsLoading(false); 
     }
   }
 
+  // TELA DE E-MAIL ENVIADO
   if (emailSent) {
       return (
         <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white pt-20">
