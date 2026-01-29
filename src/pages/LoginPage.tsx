@@ -3,8 +3,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map, CheckCircle2, FileText, Search } from "lucide-react";
 
-// --- FUNÇÕES UTILITÁRIAS ---
+// --- FUNÇÕES UTILITÁRIAS (VALIDADORES E MÁSCARAS) ---
 const maskCPF = (value: string) => value.replace(/\D/g, "").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})/, "$1-$2").replace(/(-\d{2})\d+?$/, "$1");
+
 const validateCPF = (cpf: string) => {
   cpf = cpf.replace(/[^\d]+/g, "");
   if (cpf === "" || cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
@@ -15,9 +16,10 @@ const validateCPF = (cpf: string) => {
   rev = 11 - (add % 11); if (rev === 10 || rev === 11) rev = 0;
   return rev === parseInt(cpf.charAt(10));
 };
+
 const maskPhone = (value: string) => value.replace(/\D/g, "").replace(/^(\d{2})(\d)/g, "($1) $2").replace(/(\d)(\d{4})$/, "$1-$2").slice(0, 15);
 const maskCEP = (value: string) => value.replace(/\D/g, "").replace(/^(\d{5})(\d)/, "$1-$2").slice(0, 9);
-// Validação de nome simplificada
+
 const validateName = (name: string) => {
   if (name.trim().split(" ").length < 2) return "Por favor, insira nome e sobrenome.";
   return null;
@@ -28,7 +30,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   
-  // full_name substitui username no formulário visual
+  // FORM DATA: full_name substitui username na interface
   const [formData, setFormData] = useState({ 
     full_name: "", email: "", password: "", confirmPassword: "",
     phone: "", cpf: "", cep: "", street: "", number: "", neighborhood: "", complement: "", city: "", state: ""
@@ -42,11 +44,13 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // --- BLINDAGEM DE URL ---
   const BASE_ENV_URL = import.meta.env.VITE_API_URL || "https://evoprimal-api.onrender.com";
   const API_URL = BASE_ENV_URL.endsWith("/api") ? BASE_ENV_URL : `${BASE_ENV_URL}/api`;
 
   const ufs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
+  // BUSCA CIDADES IBGE
   useEffect(() => {
     if (formData.state) {
         setLoadingCities(true);
@@ -55,6 +59,7 @@ export default function LoginPage() {
     } else { setCities([]); }
   }, [formData.state]);
 
+  // BUSCA VIACEP
   async function handleCepBlur(e: React.FocusEvent<HTMLInputElement>) {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -88,6 +93,9 @@ export default function LoginPage() {
     if (errorMessage.includes("Email is already taken")) return "Este e-mail já está cadastrado.";
     if (errorMessage.includes("Username is already taken")) return "Este nome de usuário já está em uso.";
     if (errorMessage.includes("cpf must be unique")) return "Este CPF já está cadastrado.";
+    if (errorMessage.includes("identifier or password")) return "E-mail ou senha incorretos.";
+    if (errorMessage.includes("password must be at least")) return "A senha deve ter no mínimo 6 caracteres.";
+    if (errorMessage.includes("confirmed")) return "Você precisa confirmar seu e-mail antes de entrar.";
     return errorMessage.length < 100 ? errorMessage : "Erro ao processar. Tente novamente.";
   }
 
@@ -109,10 +117,10 @@ export default function LoginPage() {
 
     try {
       if (isRegistering) {
-        // --- CADASTRO (Passo 1) ---
-        // TRUQUE: Username = Email (para garantir unicidade e permitir nomes repetidos no full_name)
+        // --- PASSO 1: CADASTRO BÁSICO ---
+        // Usamos o E-mail como Username para garantir unicidade
         const basicRegisterPayload = { 
-            username: formData.email, // Usa o email como username
+            username: formData.email, 
             email: formData.email, 
             password: formData.password 
         };
@@ -125,14 +133,13 @@ export default function LoginPage() {
         const dataRegister = await resRegister.json();
 
         if (!resRegister.ok) {
-            throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta básica."));
+            throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta."));
         }
 
-        // --- ATUALIZAÇÃO (Passo 2) ---
+        // --- PASSO 2: ATUALIZAÇÃO DE DADOS EXTRAS ---
         const jwt = dataRegister.jwt;
         const userId = dataRegister.user.id;
 
-        // Montamos o payload com todos os campos extras
         const extraDataPayload = {
             full_name: formData.full_name, // Nome real vai aqui
             cpf: formData.cpf,
@@ -156,10 +163,9 @@ export default function LoginPage() {
         });
 
         if (!resUpdate.ok) {
-            // Se der erro aqui, geralmente é permissão (Authenticated -> Update)
-            console.warn("Erro ao salvar dados extras. Verifique permissões 'update' no Strapi.", await resUpdate.json());
+            console.warn("Conta criada, mas erro ao salvar dados extras:", await resUpdate.json());
         } else {
-            // Atualiza o objeto local para o AuthContext ter os dados completos
+            // Atualiza localmente
             Object.assign(dataRegister.user, extraDataPayload);
         }
 
@@ -171,18 +177,23 @@ export default function LoginPage() {
         }
 
       } else {
-        // --- LOGIN ---
-        // Tenta logar com email e senha
+        // --- LOGIN NORMAL ---
         const res = await fetch(`${API_URL}/auth/local`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ identifier: formData.email, password: formData.password }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(translateError(data.error?.message || "Erro ao entrar"));
-        login(data.jwt, data.user); navigate("/minha-conta");
+        
+        login(data.jwt, data.user); 
+        navigate("/minha-conta");
       }
-    } catch (err: any) { console.error("Erro capturado:", err); setError(err.message); } 
-    finally { setIsLoading(false); }
+    } catch (err: any) { 
+        console.error("Erro capturado:", err); 
+        setError(err.message); 
+    } finally { 
+        setIsLoading(false); 
+    }
   }
 
   if (emailSent) {
@@ -191,7 +202,10 @@ export default function LoginPage() {
             <div className="bg-[#111] border border-white/5 p-8 rounded-2xl shadow-2xl max-w-md text-center animate-in zoom-in">
                 <CheckCircle2 className="text-green-500 w-16 h-16 mx-auto mb-4" />
                 <h2 className="text-2xl font-black uppercase mb-2">Conta Criada!</h2>
-                <p className="text-zinc-400 mb-6 text-sm">Verifique seu e-mail para ativar a conta.</p>
+                <p className="text-zinc-400 mb-6 text-sm">
+                    Verifique seu e-mail para ativar a conta. 
+                    <br/>Lembre-se de checar o SPAM.
+                </p>
                 <button onClick={() => { setEmailSent(false); setIsRegistering(false); }} className="bg-red-600 hover:bg-red-500 text-white font-bold uppercase py-3 px-8 rounded-xl transition-colors w-full">Ir para Login</button>
             </div>
         </div>
@@ -204,11 +218,24 @@ export default function LoginPage() {
          <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest"><ChevronLeft size={16} /> Voltar</Link>
       </div>
 
-      <div className={`w-full ${isRegistering ? 'max-w-2xl' : 'max-w-lg'} bg-[#111] border border-white/5 p-8 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-300 relative z-10`}>
+      <div className={`w-full ${isRegistering ? 'max-w-2xl' : 'max-w-lg'} bg-[#111] border border-white/5 p-8 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-300 relative z-10 transition-all`}>
         <div className="text-center mb-8">
             <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">{isRegistering ? "Criar Conta" : "Acessar Conta"}</h2>
             <p className="text-zinc-500 text-sm">{isRegistering ? "Dados completos para entrega" : "Bem-vindo de volta"}</p>
         </div>
+
+        {/* --- AVISO DE SEGURANÇA (AMARELO) --- */}
+        {isRegistering && (
+          <div className="mb-6 bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl flex items-start gap-3">
+             <AlertCircle className="text-yellow-500 shrink-0 mt-0.5" size={18} />
+             <div>
+               <h4 className="text-yellow-500 font-bold text-xs uppercase tracking-wider mb-1">Atenção aos dados</h4>
+               <p className="text-zinc-400 text-xs leading-snug">
+                 Preencha com atenção! Para sua segurança, <strong>CPF e Endereço não poderão ser alterados</strong> após a criação da conta sem contatar o suporte.
+               </p>
+             </div>
+          </div>
+        )}
 
         {error && <div className="bg-red-900/10 border border-red-600/20 text-red-500 p-4 rounded-lg mb-6 text-xs font-bold flex items-center gap-3 animate-pulse"><AlertCircle size={16} className="shrink-0" /><span>{error}</span></div>}
 
@@ -230,13 +257,13 @@ export default function LoginPage() {
                   </div>
               </div>
               
-              {/* RESTO DO FORMULÁRIO IGUAL... APENAS CERTIFIQUE-SE QUE OS INPUTS ESTÃO LÁ */}
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Celular / WhatsApp</label>
                 <div className="relative group"><Phone className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                   <input type="tel" name="phone" required maxLength={15} className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700" placeholder="(00) 90000-0000" value={formData.phone} onChange={handleInputChange} />
                 </div>
               </div>
+
               <div className="pt-4 border-t border-white/5">
                  <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-4">Endereço de Entrega</p>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
