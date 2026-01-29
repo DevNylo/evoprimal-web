@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ShoppingCart, Search, Menu, X, ChevronDown, User, LogIn } from "lucide-react";
 import { useCart } from "../context/CartContext";
-import { useAuth } from "../context/AuthContext"; // Importar Auth
+import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -12,10 +12,17 @@ export default function Navbar() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { cart, openCart } = useCart();
-  const { isAuthenticated, user } = useAuth(); // Pegar estado do usuário
+  const { isAuthenticated, user } = useAuth();
   
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Helper para pegar o primeiro nome (prioriza full_name, fallback para username)
+  const getFirstName = () => {
+    if (!user) return "";
+    const nameToUse = user.full_name || user.username;
+    return nameToUse?.split(" ")[0] || "";
+  };
 
   useEffect(() => {
     if (showSearch && searchInputRef.current) {
@@ -54,9 +61,8 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Função para navegar para login ou conta
   const handleAccountClick = () => {
-    setIsMobileMenuOpen(false); // Fecha menu mobile se aberto
+    setIsMobileMenuOpen(false);
     navigate(isAuthenticated ? "/minha-conta" : "/login");
   };
 
@@ -127,20 +133,20 @@ export default function Navbar() {
               </button>
             )}
 
-            {/* BOTÃO DA CONTA (O NOVO BOTÃO VERMELHO) */}
+            {/* BOTÃO DA CONTA (DESKTOP) */}
             <button 
               onClick={handleAccountClick}
               className={`
                  hidden md:flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-bold uppercase text-[10px] tracking-widest shadow-lg
                  ${isAuthenticated 
-                    ? "bg-zinc-800 text-white hover:bg-zinc-700 border border-white/10" // Logado: Discreto
-                    : "bg-red-600 text-white hover:bg-red-500 hover:-translate-y-0.5 shadow-red-900/20" // Não logado: Vermelho Chamativo
+                    ? "bg-zinc-800 text-white hover:bg-zinc-700 border border-white/10"
+                    : "bg-red-600 text-white hover:bg-red-500 hover:-translate-y-0.5 shadow-red-900/20"
                  }
               `}
             >
               {isAuthenticated ? (
                  <>
-                   <User size={14} /> {user?.username?.split(" ")[0]}
+                   <User size={14} /> Olá, {getFirstName()}
                  </>
               ) : (
                  <>
@@ -181,7 +187,7 @@ export default function Navbar() {
          
          {/* BOTÃO MOBILE ESPECÍFICO */}
          <button onClick={handleAccountClick} className="text-2xl font-black uppercase text-red-600 border border-red-600/50 px-8 py-3 rounded-xl bg-red-600/10">
-            {isAuthenticated ? "Minha Conta" : "Entrar / Cadastrar"}
+            {isAuthenticated ? `Olá, ${getFirstName()}` : "Entrar / Cadastrar"}
          </button>
 
          <Link to="/ofertas" className="text-xl font-bold uppercase text-zinc-400" onClick={() => setIsMobileMenuOpen(false)}>Ofertas</Link>
