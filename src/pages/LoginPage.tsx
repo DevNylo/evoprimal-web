@@ -3,9 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map, CheckCircle2, FileText, Search } from "lucide-react";
 
-// ==========================================
-// MÁSCARAS E VALIDADORES
-// ==========================================
 const maskCPF = (value: string) => value.replace(/\D/g, "").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})/, "$1-$2").replace(/(-\d{2})\d+?$/, "$1");
 
 const validateCPF = (cpf: string) => {
@@ -27,13 +24,10 @@ const validateName = (name: string) => {
   return null;
 };
 
-// ==========================================
-// COMPONENTE PRINCIPAL
-// ==========================================
 export default function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  const [emailSent, setEmailSent] = useState(false); // Controle de tela de sucesso
   
   const [formData, setFormData] = useState({ 
     full_name: "", email: "", password: "", confirmPassword: "",
@@ -53,7 +47,6 @@ export default function LoginPage() {
 
   const ufs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
-  // --- EFEITOS ---
   useEffect(() => {
     if (formData.state) {
         setLoadingCities(true);
@@ -62,7 +55,6 @@ export default function LoginPage() {
     } else { setCities([]); }
   }, [formData.state]);
 
-  // --- HANDLERS ---
   async function handleCepBlur(e: React.FocusEvent<HTMLInputElement>) {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -105,51 +97,28 @@ export default function LoginPage() {
 
   function isValidEmail(email: string) { return /\S+@\S+\.\S+/.test(email); }
 
-  // ==========================================
-  // LÓGICA DE SUBMIT (LOGIN E CADASTRO)
-  // ==========================================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     console.log("🟢 SUBMIT DISPARADO. Modo:", isRegistering ? "CADASTRO" : "LOGIN");
 
-    // 1. VALIDAÇÕES APENAS PARA CADASTRO
+    // 1. VALIDAÇÕES
     if (isRegistering) {
-        if (!isValidEmail(formData.email)) { 
-            console.warn("⛔ Bloqueio: Email inválido");
-            setError("Por favor, insira um e-mail válido."); return; 
-        }
-        
-        const nameError = validateName(formData.full_name); 
-        if (nameError) { 
-            console.warn("⛔ Bloqueio: Nome inválido");
-            setError(nameError); return; 
-        }
-
-        if (!validateCPF(formData.cpf)) { 
-            console.warn("⛔ Bloqueio: CPF inválido");
-            setError("CPF inválido."); return; 
-        }
-
-        if (formData.phone.length < 14) { 
-            console.warn("⛔ Bloqueio: Telefone curto");
-            setError("Telefone incompleto."); return; 
-        }
-
-        if (formData.password !== formData.confirmPassword) { 
-            console.warn("⛔ Bloqueio: Senhas diferentes");
-            setError("As senhas não coincidem."); return; 
-        }
+        if (!isValidEmail(formData.email)) { setError("Por favor, insira um e-mail válido."); return; }
+        const nameError = validateName(formData.full_name); if (nameError) { setError(nameError); return; }
+        if (!validateCPF(formData.cpf)) { setError("CPF inválido."); return; }
+        if (formData.phone.length < 14) { setError("Telefone incompleto."); return; }
+        if (formData.password !== formData.confirmPassword) { setError("As senhas não coincidem."); return; }
     }
 
-    // 2. ENVIO DE DADOS
     setIsLoading(true);
 
     try {
       if (isRegistering) {
-        // --- CADASTRO COMPLETO (1 PASSO) ---
+        // --- CADASTRO COMPLETO (Envio único) ---
+        // Agora que o backend está corrigido com module.exports, ele vai aceitar tudo!
         const payload = { 
-            username: formData.email, // Username técnico
+            username: formData.email, 
             email: formData.email, 
             password: formData.password,
             full_name: formData.full_name,
@@ -164,8 +133,6 @@ export default function LoginPage() {
             complement: formData.complement
         };
 
-        console.log("🚀 Enviando Payload de Cadastro:", payload);
-
         const resRegister = await fetch(`${API_URL}/auth/local/register`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -174,32 +141,24 @@ export default function LoginPage() {
         const dataRegister = await resRegister.json();
 
         if (!resRegister.ok) {
-            // --- AQUI ESTÁ A MÁGICA PARA VER O ERRO REAL ---
-            console.error("🚨 ERRO REVELADO:", JSON.stringify(dataRegister, null, 2));
-            
+            console.error("❌ Erro Cadastro:", JSON.stringify(dataRegister, null, 2));
             throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta."));
         }
 
         console.log("🎉 Cadastro Sucesso! ID:", dataRegister.user?.id);
+        
+        // Se a confirmação de e-mail estiver ON, mostramos a tela de "Verifique seu e-mail"
         setEmailSent(true);
 
       } else {
         // --- LOGIN ---
-        console.log("🚀 Tentando Login com:", formData.email);
-        
         const res = await fetch(`${API_URL}/auth/local`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ identifier: formData.email, password: formData.password }),
         });
-        
         const data = await res.json();
+        if (!res.ok) throw new Error(translateError(data.error?.message || "Erro ao entrar"));
         
-        if (!res.ok) {
-            console.error("❌ Erro API Login:", data);
-            throw new Error(translateError(data.error?.message || "Erro ao entrar"));
-        }
-
-        console.log("🎉 Login Sucesso!");
         login(data.jwt, data.user); 
         navigate("/minha-conta");
       }
@@ -211,7 +170,7 @@ export default function LoginPage() {
     }
   }
 
-  // TELA DE SUCESSO DO EMAIL
+  // TELA DE SUCESSO (E-MAIL ENVIADO)
   if (emailSent) {
       return (
         <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white pt-20">
@@ -219,7 +178,9 @@ export default function LoginPage() {
                 <CheckCircle2 className="text-green-500 w-16 h-16 mx-auto mb-4" />
                 <h2 className="text-2xl font-black uppercase mb-2">Conta Criada!</h2>
                 <p className="text-zinc-400 mb-6 text-sm">
-                    Verifique seu e-mail (Caixa de Entrada ou Spam) para ativar a conta.
+                    Para sua segurança, enviamos um link para <strong>{formData.email}</strong>.
+                    <br/><br/>
+                    Confirme seu e-mail para ativar a conta e fazer login.
                 </p>
                 <button onClick={() => { setEmailSent(false); setIsRegistering(false); }} className="bg-red-600 hover:bg-red-500 text-white font-bold uppercase py-3 px-8 rounded-xl transition-colors w-full">Voltar para Login</button>
             </div>
@@ -359,7 +320,6 @@ export default function LoginPage() {
             <div className="flex justify-end pt-2"><Link to="/esqueci-senha" className="text-zinc-500 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest transition-colors">Esqueci minha senha</Link></div>
           )}
           
-          {/* BOTÃO COM TYPE SUBMIT EXPLÍCITO */}
           <button 
             type="submit" 
             disabled={isLoading} 
