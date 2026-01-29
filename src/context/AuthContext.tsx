@@ -1,84 +1,89 @@
-// CORREÇÃO: Adicionado 'type' antes de ReactNode
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
+import type { ReactNode } from "react";
 
-// Definição do tipo de Usuário
+// 1. DEFINIÇÃO DO TIPO DE USUÁRIO (O contrato com o TypeScript)
 export interface User {
   id: number;
   username: string;
   email: string;
-  confirmed?: boolean;
-  blocked?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  address?: string;
+  provider: string;
+  confirmed: boolean;
+  blocked: boolean;
+  createdAt: string;
+  updatedAt: string;
+  
+  // --- DADOS PESSOAIS ---
+  full_name?: string;
+  cpf?: string;
   phone?: string;
+
+  // --- ENDEREÇO (Certifique-se que 'number' está aqui) ---
+  cep?: string;
+  street?: string;
+  number?: string; // <--- O CAMPO QUE ESTAVA FALTANDO
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  complement?: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  jwt: string | null;
   login: (token: string, userData: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
-  updateUser: (userData: User) => void;
+  isLoading: boolean;
 }
 
-const AuthContext = createContext({} as AuthContextType);
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [jwt, setJwt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Carrega dados do LocalStorage ao iniciar
   useEffect(() => {
-    const storedUser = localStorage.getItem("@evoprimal:user");
-    const storedToken = localStorage.getItem("@evoprimal:jwt");
+    const storedUser = localStorage.getItem("evo_user");
+    const storedToken = localStorage.getItem("evo_token");
 
     if (storedUser && storedToken) {
       try {
         setUser(JSON.parse(storedUser));
-        setJwt(storedToken);
       } catch (error) {
-        console.error("Erro ao recuperar sessão:", error);
-        localStorage.removeItem("@evoprimal:user");
-        localStorage.removeItem("@evoprimal:jwt");
+        console.error("Erro ao recuperar usuário:", error);
+        localStorage.removeItem("evo_user");
+        localStorage.removeItem("evo_token");
       }
     }
-    setLoading(false);
+    setIsLoading(false);
   }, []);
 
-  function login(token: string, userData: User) {
+  // Função de Login (Salva Token e Dados)
+  const login = (token: string, userData: User) => {
+    localStorage.setItem("evo_token", token);
+    localStorage.setItem("evo_user", JSON.stringify(userData));
     setUser(userData);
-    setJwt(token);
-    localStorage.setItem("@evoprimal:user", JSON.stringify(userData));
-    localStorage.setItem("@evoprimal:jwt", token);
-  }
+  };
 
-  function logout() {
+  // Função de Logout (Limpa tudo)
+  const logout = () => {
+    localStorage.removeItem("evo_token");
+    localStorage.removeItem("evo_user");
     setUser(null);
-    setJwt(null);
-    localStorage.removeItem("@evoprimal:user");
-    localStorage.removeItem("@evoprimal:jwt");
-    window.location.href = "/login";
-  }
-
-  function updateUser(userData: User) {
-    setUser(userData);
-    localStorage.setItem("@evoprimal:user", JSON.stringify(userData));
-  }
+  };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
-      jwt, 
       login, 
       logout, 
-      updateUser,
-      isAuthenticated: !!user 
+      isAuthenticated: !!user,
+      isLoading 
     }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }
 
+// Hook personalizado para usar o contexto
 export const useAuth = () => useContext(AuthContext);
