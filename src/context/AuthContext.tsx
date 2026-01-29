@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 
-// 1. DEFINIÇÃO DO TIPO DE USUÁRIO (O contrato com o TypeScript)
+// 1. DEFINIÇÃO DO TIPO DE USUÁRIO
 export interface User {
   id: number;
   username: string;
@@ -17,10 +17,10 @@ export interface User {
   cpf?: string;
   phone?: string;
 
-  // --- ENDEREÇO (Certifique-se que 'number' está aqui) ---
+  // --- ENDEREÇO ---
   cep?: string;
   street?: string;
-  number?: string; // <--- O CAMPO QUE ESTAVA FALTANDO
+  number?: string;
   neighborhood?: string;
   city?: string;
   state?: string;
@@ -35,13 +35,14 @@ interface AuthContextType {
   isLoading: boolean;
 }
 
+// Criação do Contexto
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
+// Provider (O componente que envolve o App)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carrega dados do LocalStorage ao iniciar
   useEffect(() => {
     const storedUser = localStorage.getItem("evo_user");
     const storedToken = localStorage.getItem("evo_token");
@@ -58,14 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  // Função de Login (Salva Token e Dados)
   const login = (token: string, userData: User) => {
     localStorage.setItem("evo_token", token);
     localStorage.setItem("evo_user", JSON.stringify(userData));
     setUser(userData);
   };
 
-  // Função de Logout (Limpa tudo)
   const logout = () => {
     localStorage.removeItem("evo_token");
     localStorage.removeItem("evo_user");
@@ -85,5 +84,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Hook personalizado para usar o contexto
+// --- A LINHA QUE ESTAVA FALTANDO E CAUSAVA O ERRO ---
 export const useAuth = () => useContext(AuthContext);
