@@ -4,21 +4,23 @@ import { CheckCircle2, XCircle, Loader2, ArrowRight } from "lucide-react";
 
 export default function EmailConfirmationPage() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate(); // Agora será usado
+  const navigate = useNavigate();
   
-  // Limpeza de segurança no código
+  // Limpeza de segurança no código que vem do e-mail
   const rawCode = searchParams.get("code");
   const code = rawCode ? rawCode.replace(/['"]/g, "").trim() : null;
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  
-  // TRAVA DE SEGURANÇA: Impede execução dupla
   const requestSent = useRef(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || "https://evoprimal-api.onrender.com/api";
+  // --- BLINDAGEM DE URL (Igual ao Login) ---
+  const BASE_ENV_URL = import.meta.env.VITE_API_URL || "https://evoprimal-api.onrender.com";
+  // Garante que sempre termina com /api
+  const API_URL = BASE_ENV_URL.endsWith("/api") ? BASE_ENV_URL : `${BASE_ENV_URL}/api`;
 
   useEffect(() => {
     if (!code) {
+      console.error("Código não encontrado na URL");
       setStatus('error');
       return;
     }
@@ -28,30 +30,33 @@ export default function EmailConfirmationPage() {
 
     async function confirmEmail() {
       try {
+        console.log(`Tentando validar código: ${code}`);
+        console.log(`URL usada: ${API_URL}/auth/email-confirmation?confirmation=${code}`);
+
         const res = await fetch(`${API_URL}/auth/email-confirmation?confirmation=${code}`);
         const data = await res.json();
 
         if (!res.ok) {
           console.error("Erro Strapi:", data);
+          // Se o erro for 404 aqui, é porque o código está errado ou a URL base ainda está ruim
           throw new Error(data.error?.message || 'Código inválido');
         }
 
         setStatus('success');
         
-        // CORREÇÃO: Linha descomentada para usar o 'navigate'
-        // Redireciona para o login após 5 segundos (Experiência do Usuário)
+        // Redireciona para login após 5 segundos
         setTimeout(() => {
             navigate("/login");
         }, 5000);
 
       } catch (error) {
-        console.error(error);
+        console.error("Erro capturado:", error);
         setStatus('error');
       }
     }
 
     confirmEmail();
-  }, [code, API_URL, navigate]); // Adicionei 'navigate' aqui para satisfazer o linter
+  }, [code, API_URL, navigate]);
 
   return (
     <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white">
@@ -61,6 +66,7 @@ export default function EmailConfirmationPage() {
           <div className="py-10">
             <Loader2 className="w-16 h-16 text-red-600 animate-spin mx-auto mb-4" />
             <h2 className="text-xl font-black uppercase">Validando...</h2>
+            <p className="text-zinc-500 text-sm mt-2">Estamos ativando sua conta.</p>
           </div>
         )}
 
@@ -85,7 +91,9 @@ export default function EmailConfirmationPage() {
             <XCircle className="w-20 h-20 text-red-600 mx-auto mb-6" />
             <h2 className="text-2xl font-black uppercase mb-2">Erro na Validação</h2>
             <p className="text-zinc-400 mb-8 text-sm">
-              O link expirou ou já foi utilizado. Tente fazer login.
+              Não foi possível confirmar. O link pode ter expirado ou sua conta já foi ativada.
+              <br/><br/>
+              Tente fazer login direto.
             </p>
             <Link 
               to="/login" 
