@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Loader2, Lock, User, Mail, ChevronLeft, AlertCircle, MapPin, Phone, Home, Hash, Map, CheckCircle2, FileText, Search } from "lucide-react";
 
-// --- FUNÇÕES UTILITÁRIAS (MANTIDAS) ---
+// --- FUNÇÕES UTILITÁRIAS ---
 const maskCPF = (value: string) => value.replace(/\D/g, "").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})/, "$1-$2").replace(/(-\d{2})\d+?$/, "$1");
 const validateCPF = (cpf: string) => {
   cpf = cpf.replace(/[^\d]+/g, "");
@@ -44,8 +44,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // --- CORREÇÃO CRÍTICA DA URL ---
-  // Isso garante que sempre teremos o /api no final, evitando o erro 405 Method Not Allowed
+  // URL FIXA para garantir que sempre usa /api
   const BASE_ENV_URL = import.meta.env.VITE_API_URL || "https://evoprimal-api.onrender.com";
   const API_URL = BASE_ENV_URL.endsWith("/api") ? BASE_ENV_URL : `${BASE_ENV_URL}/api`;
 
@@ -94,7 +93,7 @@ export default function LoginPage() {
     if (errorMessage.includes("cpf must be unique")) return "Este CPF já está cadastrado.";
     if (errorMessage.includes("identifier or password")) return "E-mail ou senha incorretos.";
     if (errorMessage.includes("password must be at least")) return "A senha deve ter no mínimo 6 caracteres.";
-    return errorMessage.length < 100 ? errorMessage : "Erro de conexão. Verifique se o servidor está online.";
+    return errorMessage.length < 100 ? errorMessage : "Erro ao processar. Tente novamente.";
   }
 
   function isValidEmail(email: string) { return /\S+@\S+\.\S+/.test(email); }
@@ -115,37 +114,71 @@ export default function LoginPage() {
 
     try {
       if (isRegistering) {
-        const registerPayload = { 
-            username: formData.username, email: formData.email, password: formData.password,
-            cpf: formData.cpf, phone: formData.phone, cep: formData.cep,
-            street: formData.street, number: formData.number, neighborhood: formData.neighborhood,
-            city: formData.city, state: formData.state, complement: formData.complement,
-            // Enviamos também o 'address' completo caso algum sistema antigo ainda precise dele
-            address: `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city}/${formData.state}`
+        // --- ESTRATÉGIA DE 2 PASSOS (BLINDADA) ---
+        
+        // PASSO 1: Criar conta BÁSICA (O Strapi aceita isso sempre)
+        const basicRegisterPayload = { 
+            username: formData.username, 
+            email: formData.email, 
+            password: formData.password 
         };
-
-        console.log("Tentando registrar em:", `${API_URL}/auth/local/register`); // Log para Debug
 
         const resRegister = await fetch(`${API_URL}/auth/local/register`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(registerPayload),
+            body: JSON.stringify(basicRegisterPayload),
         });
 
-        const responseText = await resRegister.text();
-        let dataRegister;
-        try { dataRegister = JSON.parse(responseText); } 
-        catch (e) { 
-            console.error("Resposta Inválida:", responseText);
-            throw new Error(`Erro Fatal: O servidor respondeu com formato inválido (${resRegister.status}). Verifique a URL.`);
+        const dataRegister = await resRegister.json();
+
+        if (!resRegister.ok) {
+            throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta básica."));
         }
 
-        if (!resRegister.ok) throw new Error(translateError(dataRegister.error?.message || "Erro desconhecido"));
+        // PASSO 2: Usar o Token para salvar os DADOS EXTRAS
+        // Como agora estamos "logados" com o token, temos permissão de editar o perfil.
+        const jwt = dataRegister.jwt;
+        const userId = dataRegister.user.id;
 
-        if (dataRegister.user.confirmed === false) { setEmailSent(true); } 
-        else { login(dataRegister.jwt, dataRegister.user); navigate("/minha-conta"); }
+        const extraDataPayload = {
+            cpf: formData.cpf,
+            phone: formData.phone,
+            cep: formData.cep,
+            street: formData.street,
+            number: formData.number,
+            neighborhood: formData.neighborhood,
+            city: formData.city,
+            state: formData.state,
+            complement: formData.complement
+        };
+
+        const resUpdate = await fetch(`${API_URL}/users/${userId}`, {
+            method: "PUT",
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${jwt}` // A chave mágica
+            },
+            body: JSON.stringify(extraDataPayload),
+        });
+
+        if (!resUpdate.ok) {
+            const errorData = await resUpdate.json();
+            console.warn("Conta criada, mas erro ao salvar dados:", errorData);
+            // Não bloqueamos o usuário, mas avisamos no console
+        } else {
+            // Atualiza o objeto local do usuário com os dados novos
+            Object.assign(dataRegister.user, extraDataPayload);
+        }
+
+        // FINALIZAÇÃO
+        if (dataRegister.user.confirmed === false) { 
+            setEmailSent(true); 
+        } else { 
+            login(dataRegister.jwt, dataRegister.user); 
+            navigate("/minha-conta"); 
+        }
 
       } else {
-        // LOGIN
+        // --- LOGIN NORMAL ---
         const res = await fetch(`${API_URL}/auth/local`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ identifier: formData.email, password: formData.password }),
@@ -158,6 +191,7 @@ export default function LoginPage() {
     finally { setIsLoading(false); }
   }
 
+  // --- RENDERIZAÇÃO (Mantida igual) ---
   if (emailSent) {
       return (
         <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white pt-20">
@@ -225,23 +259,22 @@ export default function LoginPage() {
                         </div>
                     </div>
                  </div>
-                 {/* GRID DE ENDEREÇO MELHORADO E ESPAÇADO */}
-                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
-                    <div className="space-y-1 md:col-span-1">
+                 <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="space-y-1 col-span-1">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Número</label>
                         <div className="relative group"><Hash className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                         <input id="numberInput" type="text" name="number" required className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700" placeholder="123" value={formData.number} onChange={handleInputChange}/>
                         </div>
                     </div>
-                     <div className="space-y-1 md:col-span-3">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Complemento</label>
+                     <div className="space-y-1 col-span-2">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Complemento (Opcional)</label>
                         <div className="relative group"><Home className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                         <input type="text" name="complement" className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700" placeholder="Apto, Bloco..." value={formData.complement} onChange={handleInputChange}/>
                         </div>
                     </div>
                  </div>
-                 <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-3">
-                    <div className="space-y-1 md:col-span-3">
+                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
+                    <div className="space-y-1 md:col-span-2">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Bairro</label>
                         <div className="relative group"><Map className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
                         <input type="text" name="neighborhood" required className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700" placeholder="Bairro" value={formData.neighborhood} onChange={handleInputChange}/>
