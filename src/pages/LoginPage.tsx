@@ -17,12 +17,9 @@ const validateCPF = (cpf: string) => {
 };
 const maskPhone = (value: string) => value.replace(/\D/g, "").replace(/^(\d{2})(\d)/g, "($1) $2").replace(/(\d)(\d{4})$/, "$1-$2").slice(0, 15);
 const maskCEP = (value: string) => value.replace(/\D/g, "").replace(/^(\d{5})(\d)/, "$1-$2").slice(0, 9);
+// Validação de nome simplificada
 const validateName = (name: string) => {
-  const regex = /^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/;
-  const blockList = ["admin", "root", "teste", "merda", "porra", "caralho", "boceta", "puta", "viado"];
-  if (!regex.test(name)) return "O nome não pode conter números ou símbolos.";
   if (name.trim().split(" ").length < 2) return "Por favor, insira nome e sobrenome.";
-  if (blockList.some(word => name.toLowerCase().includes(word))) return "Nome inválido.";
   return null;
 };
 
@@ -31,8 +28,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   
+  // full_name substitui username no formulário visual
   const [formData, setFormData] = useState({ 
-    username: "", email: "", password: "", confirmPassword: "",
+    full_name: "", email: "", password: "", confirmPassword: "",
     phone: "", cpf: "", cep: "", street: "", number: "", neighborhood: "", complement: "", city: "", state: ""
   });
 
@@ -44,7 +42,6 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // URL FIXA para garantir que sempre usa /api
   const BASE_ENV_URL = import.meta.env.VITE_API_URL || "https://evoprimal-api.onrender.com";
   const API_URL = BASE_ENV_URL.endsWith("/api") ? BASE_ENV_URL : `${BASE_ENV_URL}/api`;
 
@@ -91,8 +88,6 @@ export default function LoginPage() {
     if (errorMessage.includes("Email is already taken")) return "Este e-mail já está cadastrado.";
     if (errorMessage.includes("Username is already taken")) return "Este nome de usuário já está em uso.";
     if (errorMessage.includes("cpf must be unique")) return "Este CPF já está cadastrado.";
-    if (errorMessage.includes("identifier or password")) return "E-mail ou senha incorretos.";
-    if (errorMessage.includes("password must be at least")) return "A senha deve ter no mínimo 6 caracteres.";
     return errorMessage.length < 100 ? errorMessage : "Erro ao processar. Tente novamente.";
   }
 
@@ -104,7 +99,7 @@ export default function LoginPage() {
 
     if (isRegistering) {
         if (!isValidEmail(formData.email)) { setError("Por favor, insira um e-mail válido."); return; }
-        const nameError = validateName(formData.username); if (nameError) { setError(nameError); return; }
+        const nameError = validateName(formData.full_name); if (nameError) { setError(nameError); return; }
         if (!validateCPF(formData.cpf)) { setError("CPF inválido."); return; }
         if (formData.phone.length < 14) { setError("Telefone incompleto."); return; }
         if (formData.password !== formData.confirmPassword) { setError("As senhas não coincidem."); return; }
@@ -114,11 +109,10 @@ export default function LoginPage() {
 
     try {
       if (isRegistering) {
-        // --- ESTRATÉGIA DE 2 PASSOS (BLINDADA) ---
-        
-        // PASSO 1: Criar conta BÁSICA (O Strapi aceita isso sempre)
+        // --- CADASTRO (Passo 1) ---
+        // TRUQUE: Username = Email (para garantir unicidade e permitir nomes repetidos no full_name)
         const basicRegisterPayload = { 
-            username: formData.username, 
+            username: formData.email, // Usa o email como username
             email: formData.email, 
             password: formData.password 
         };
@@ -134,12 +128,13 @@ export default function LoginPage() {
             throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta básica."));
         }
 
-        // PASSO 2: Usar o Token para salvar os DADOS EXTRAS
-        // Como agora estamos "logados" com o token, temos permissão de editar o perfil.
+        // --- ATUALIZAÇÃO (Passo 2) ---
         const jwt = dataRegister.jwt;
         const userId = dataRegister.user.id;
 
+        // Montamos o payload com todos os campos extras
         const extraDataPayload = {
+            full_name: formData.full_name, // Nome real vai aqui
             cpf: formData.cpf,
             phone: formData.phone,
             cep: formData.cep,
@@ -155,21 +150,19 @@ export default function LoginPage() {
             method: "PUT",
             headers: { 
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${jwt}` // A chave mágica
+                "Authorization": `Bearer ${jwt}` 
             },
             body: JSON.stringify(extraDataPayload),
         });
 
         if (!resUpdate.ok) {
-            const errorData = await resUpdate.json();
-            console.warn("Conta criada, mas erro ao salvar dados:", errorData);
-            // Não bloqueamos o usuário, mas avisamos no console
+            // Se der erro aqui, geralmente é permissão (Authenticated -> Update)
+            console.warn("Erro ao salvar dados extras. Verifique permissões 'update' no Strapi.", await resUpdate.json());
         } else {
-            // Atualiza o objeto local do usuário com os dados novos
+            // Atualiza o objeto local para o AuthContext ter os dados completos
             Object.assign(dataRegister.user, extraDataPayload);
         }
 
-        // FINALIZAÇÃO
         if (dataRegister.user.confirmed === false) { 
             setEmailSent(true); 
         } else { 
@@ -178,7 +171,8 @@ export default function LoginPage() {
         }
 
       } else {
-        // --- LOGIN NORMAL ---
+        // --- LOGIN ---
+        // Tenta logar com email e senha
         const res = await fetch(`${API_URL}/auth/local`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ identifier: formData.email, password: formData.password }),
@@ -191,7 +185,6 @@ export default function LoginPage() {
     finally { setIsLoading(false); }
   }
 
-  // --- RENDERIZAÇÃO (Mantida igual) ---
   if (emailSent) {
       return (
         <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white pt-20">
@@ -226,7 +219,7 @@ export default function LoginPage() {
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Nome Completo</label>
                     <div className="relative group"><User className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
-                      <input type="text" name="username" required className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700" placeholder="Nome e Sobrenome" value={formData.username} onChange={handleInputChange} />
+                      <input type="text" name="full_name" required className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-10 text-white focus:border-red-600 focus:outline-none transition-all placeholder:text-zinc-700" placeholder="Nome e Sobrenome" value={formData.full_name} onChange={handleInputChange} />
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -236,6 +229,8 @@ export default function LoginPage() {
                     </div>
                   </div>
               </div>
+              
+              {/* RESTO DO FORMULÁRIO IGUAL... APENAS CERTIFIQUE-SE QUE OS INPUTS ESTÃO LÁ */}
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Celular / WhatsApp</label>
                 <div className="relative group"><Phone className="absolute left-3 top-3.5 text-zinc-600 group-focus-within:text-red-600 transition-colors" size={18} />
