@@ -118,36 +118,19 @@ export default function LoginPage() {
     try {
       if (isRegistering) {
         // =========================================================
-        // PASSO 1: CRIAR CONTA BÁSICA
+        // CADASTRO UNIFICADO (Passo Único)
         // =========================================================
-        console.log("🚀 Passo 1: Criando usuário básico...");
-        const basicPayload = { 
-            username: formData.email, // Usa EMAIL como username para evitar duplicidade
+        console.log("🚀 Iniciando cadastro unificado...");
+
+        // Montamos um objeto ÚNICO com tudo.
+        // O "strapi-server.js" no backend vai interceptar e salvar os extras.
+        const payload = { 
+            // Dados de Autenticação
+            username: formData.email, // Username técnico (usamos email para ser único)
             email: formData.email, 
-            password: formData.password 
-        };
+            password: formData.password,
 
-        const resRegister = await fetch(`${API_URL}/auth/local/register`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(basicPayload),
-        });
-
-        const dataRegister = await resRegister.json();
-
-        if (!resRegister.ok) {
-            console.error("❌ Erro no Passo 1:", dataRegister);
-            throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta."));
-        }
-
-        console.log("✅ Passo 1 Sucesso! ID:", dataRegister.user.id);
-        
-        // =========================================================
-        // PASSO 2: ATUALIZAR COM DADOS EXTRAS
-        // =========================================================
-        const jwt = dataRegister.jwt;
-        const userId = dataRegister.user.id;
-
-        const extraData = {
+            // Dados de Perfil e Endereço (Backend Customizado)
             full_name: formData.full_name,
             cpf: formData.cpf,
             phone: formData.phone,
@@ -160,41 +143,25 @@ export default function LoginPage() {
             complement: formData.complement
         };
 
-        console.log("🚀 Passo 2: Salvando dados extras...", extraData);
-
-        const resUpdate = await fetch(`${API_URL}/users/${userId}`, {
-            method: "PUT",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${jwt}` // FUNDAMENTAL PARA FUNCIONAR
-            },
-            body: JSON.stringify(extraData),
+        const resRegister = await fetch(`${API_URL}/auth/local/register`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
         });
 
-        const dataUpdate = await resUpdate.json();
+        const dataRegister = await resRegister.json();
 
-        if (!resUpdate.ok) {
-            console.error("❌ Erro Crítico no Passo 2 (Endereço/CPF não salvo):", dataUpdate);
-            // IMPORTANTE: Se der erro 403 aqui, é porque falta a permissão "Update" no Strapi
-            console.warn("DICA: Verifique no Strapi Admin > Settings > Roles > Authenticated > User > Update");
-        } else {
-            console.log("✅ Passo 2 Sucesso! Dados completos salvos.");
-            // Mescla os dados novos no objeto do usuário local
-            Object.assign(dataRegister.user, dataUpdate);
+        if (!resRegister.ok) {
+            console.error("❌ Erro no Cadastro:", dataRegister);
+            throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta."));
         }
 
-        // =========================================================
-        // FINALIZAÇÃO
-        // =========================================================
-        if (dataRegister.user.confirmed === false) { 
-            setEmailSent(true); 
-        } else { 
-            login(dataRegister.jwt, dataRegister.user); 
-            navigate("/minha-conta"); 
-        }
+        console.log("✅ Cadastro realizado com sucesso! ID:", dataRegister.user?.id);
+        setEmailSent(true);
 
       } else {
-        // --- LOGIN NORMAL ---
+        // =========================================================
+        // LOGIN (Mantido padrão)
+        // =========================================================
         const res = await fetch(`${API_URL}/auth/local`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ identifier: formData.email, password: formData.password }),
@@ -202,6 +169,7 @@ export default function LoginPage() {
         const data = await res.json();
         if (!res.ok) throw new Error(translateError(data.error?.message || "Erro ao entrar"));
         
+        // O login bem sucedido retorna o usuário e o token
         login(data.jwt, data.user); 
         navigate("/minha-conta");
       }
@@ -213,7 +181,7 @@ export default function LoginPage() {
     }
   }
 
-  // TELA DE E-MAIL ENVIADO
+  // TELA DE SUCESSO (E-MAIL ENVIADO)
   if (emailSent) {
       return (
         <div className="min-h-screen bg-[#090909] flex flex-col items-center justify-center p-4 font-sans text-white pt-20">
@@ -221,10 +189,11 @@ export default function LoginPage() {
                 <CheckCircle2 className="text-green-500 w-16 h-16 mx-auto mb-4" />
                 <h2 className="text-2xl font-black uppercase mb-2">Conta Criada!</h2>
                 <p className="text-zinc-400 mb-6 text-sm">
-                    Verifique seu e-mail para ativar a conta. 
-                    <br/>Lembre-se de checar o SPAM.
+                    Enviamos um link de confirmação para <strong>{formData.email}</strong>.
+                    <br/><br/>
+                    Verifique sua caixa de entrada e SPAM para ativar sua conta.
                 </p>
-                <button onClick={() => { setEmailSent(false); setIsRegistering(false); }} className="bg-red-600 hover:bg-red-500 text-white font-bold uppercase py-3 px-8 rounded-xl transition-colors w-full">Ir para Login</button>
+                <button onClick={() => { setEmailSent(false); setIsRegistering(false); }} className="bg-red-600 hover:bg-red-500 text-white font-bold uppercase py-3 px-8 rounded-xl transition-colors w-full">Voltar para Login</button>
             </div>
         </div>
       );
