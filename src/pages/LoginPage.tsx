@@ -166,19 +166,21 @@ export default function LoginPage() {
 
         console.log("🚀 Enviando Payload de Cadastro:", payload);
 
-        const res = await fetch(`${API_URL}/auth/local/register`, {
+        const resRegister = await fetch(`${API_URL}/auth/local/register`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
         });
 
-        const data = await res.json();
+        const dataRegister = await resRegister.json();
 
-        if (!res.ok) {
-            console.error("❌ Erro API Cadastro:", data);
-            throw new Error(translateError(data.error?.message || "Erro ao criar conta."));
+        if (!resRegister.ok) {
+            // --- AQUI ESTÁ A MÁGICA PARA VER O ERRO REAL ---
+            console.error("🚨 ERRO REVELADO:", JSON.stringify(dataRegister, null, 2));
+            
+            throw new Error(translateError(dataRegister.error?.message || "Erro ao criar conta."));
         }
 
-        console.log("🎉 Cadastro Sucesso! ID:", data.user?.id);
+        console.log("🎉 Cadastro Sucesso! ID:", dataRegister.user?.id);
         setEmailSent(true);
 
       } else {
