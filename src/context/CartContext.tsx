@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 // Importamos o tipo Product do outro contexto para garantir compatibilidade
+// Certifique-se de que o caminho "./StoreContext" está correto
 import { type Product } from "./StoreContext";
 
 // Definimos que um CartItem é um Produto + a quantidade
@@ -9,16 +10,18 @@ export interface CartItem extends Product {
 
 interface CartContextType {
   cart: CartItem[];
-  // A MUDANÇA ESTÁ AQUI: Agora aceitamos 'Product' na entrada
   addToCart: (product: Product) => void; 
   removeFromCart: (id: number) => void;
   updateQuantity: (id: number, type: 'increment' | 'decrement') => void;
   cartCount: number;
+  total: number; // <--- ADICIONADO: O Checkout precisa disso
   isCartOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
+  clearCart: () => void; // Útil para limpar após a compra
 }
 
+// Inicializa o contexto com um valor padrão vazio (mas tipado)
 const CartContext = createContext({} as CartContextType);
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -35,7 +38,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("@evoprimal:cart", JSON.stringify(cart));
   }, [cart]);
 
-  // FUNÇÃO CORRIGIDA
   function addToCart(product: Product) {
     setCart((prev) => {
       const existingItem = prev.find((item) => item.id === product.id);
@@ -49,10 +51,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       } else {
         // SE É NOVO: Cria o CartItem adicionando quantity: 1
-        // O 'as CartItem' garante ao TypeScript que agora está tudo certo
         const newItem: CartItem = { ...product, quantity: 1 };
         
-        setIsCartOpen(true); // Abre o carrinho para dar feedback
+        setIsCartOpen(true); // Abre o carrinho para dar feedback visual
         return [...prev, newItem];
       }
     });
@@ -65,14 +66,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   function updateQuantity(id: number, type: 'increment' | 'decrement') {
     setCart(prev => prev.map(item => {
       if (item.id === id) {
+        // Se for decrementar e já for 1, mantém 1 (ou poderia remover, depende da regra)
+        if (type === 'decrement' && item.quantity === 1) {
+            return item; 
+        }
         const newQuantity = type === 'increment' ? item.quantity + 1 : item.quantity - 1;
-        return { ...item, quantity: newQuantity < 1 ? 1 : newQuantity };
+        return { ...item, quantity: newQuantity };
       }
       return item;
     }));
   }
 
+  function clearCart() {
+    setCart([]);
+  }
+
+  // CÁLCULOS DERIVADOS (Calculados a cada renderização baseados no estado 'cart')
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+  
+  // <--- ADICIONADO: Cálculo do preço total
+  const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   return (
     <CartContext.Provider
@@ -82,9 +95,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeFromCart,
         updateQuantity,
         cartCount,
+        total, // <--- Exportando o total para ser usado no CheckoutPage
         isCartOpen,
         openCart: () => setIsCartOpen(true),
         closeCart: () => setIsCartOpen(false),
+        clearCart
       }}
     >
       {children}
