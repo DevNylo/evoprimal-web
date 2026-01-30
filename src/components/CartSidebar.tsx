@@ -1,37 +1,29 @@
-import { useState } from "react";
-import { X, Trash2, ShoppingBag, CreditCard, Loader2, Plus, LogIn } from "lucide-react";
+import { X, Trash2, ShoppingBag, CreditCard, Plus, LogIn } from "lucide-react"; // Removi Loader2 e useState
 import { useCart } from "../context/CartContext";
-import { useAuth } from "../context/AuthContext"; // Importado para verificar login
-import { useNavigate } from "react-router-dom";   // Importado para redirecionar
+import { useAuth } from "../context/AuthContext"; 
+import { useNavigate } from "react-router-dom";   
 
 export default function CartSidebar() {
   const { cart, isCartOpen, closeCart, removeFromCart, addToCart } = useCart();
-  const { isAuthenticated } = useAuth(); // Pegamos o status de autenticação
-  const navigate = useNavigate(); // Hook para navegação
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const { isAuthenticated } = useAuth(); 
+  const navigate = useNavigate(); 
+  
+  // Removi o useState de loading que estava sobrando
 
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-  async function handleCheckout() {
+  function handleCheckout() {
     if (cart.length === 0) return;
 
-    // VERIFICAÇÃO DE LOGIN
+    closeCart(); // Fecha o sidebar
+
     if (!isAuthenticated) {
-        closeCart(); // Fecha o sidebar para não atrapalhar
-        navigate("/login"); // Manda para a tela de login
-        return; // Para a execução aqui
+        navigate("/login"); 
+        return; 
     }
 
-    setIsCheckingOut(true);
-    try {
-      // Simulação
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert("Redirecionando para o Gateway de Pagamento...");
-    } catch (error) {
-      console.error("Erro no checkout:", error);
-    } finally {
-      setIsCheckingOut(false);
-    }
+    // AQUI ESTÁ A MÁGICA: Leva para a página que faz a integração real
+    navigate("/checkout");
   }
 
   return (
@@ -153,29 +145,20 @@ export default function CartSidebar() {
               
               <button 
                 onClick={handleCheckout}
-                disabled={isCheckingOut || cart.length === 0} 
+                disabled={cart.length === 0} 
                 className="w-full group bg-red-600 hover:bg-red-500 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed text-white py-4 rounded-lg font-black uppercase tracking-[0.2em] transition-all hover:-translate-y-1 active:translate-y-0 shadow-[0_0_20px_rgba(220,38,38,0.3)] hover:shadow-[0_0_30px_rgba(220,38,38,0.5)] flex items-center justify-center gap-3 relative overflow-hidden"
               >
-                {isCheckingOut ? (
-                  <>
-                    <Loader2 size={20} className="animate-spin" /> Processando...
-                  </>
-                ) : (
-                  <>
-                    {/* Muda o ícone e o texto dependendo se está logado ou não */}
-                    {isAuthenticated ? (
-                        <>
-                           <CreditCard size={20} className="group-hover:scale-110 transition-transform" /> 
-                           Finalizar Compra
-                        </>
-                    ) : (
-                        <>
-                           <LogIn size={20} className="group-hover:translate-x-1 transition-transform" /> 
-                           Entrar para Comprar
-                        </>
-                    )}
-                  </>
-                )}
+                  {isAuthenticated ? (
+                      <>
+                         <CreditCard size={20} className="group-hover:scale-110 transition-transform" /> 
+                         Finalizar Compra
+                      </>
+                  ) : (
+                      <>
+                         <LogIn size={20} className="group-hover:translate-x-1 transition-transform" /> 
+                         Entrar para Comprar
+                      </>
+                  )}
               </button>
               
               <div className="flex flex-col items-center gap-2 pt-2">

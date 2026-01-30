@@ -10,32 +10,27 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // ⚠️ AJUSTE CRÍTICO: Fixamos a URL correta do Render com /api no final
-  // Isso garante que não haja erro de montagem da URL
+  // URL Fixa do Backend no Render
   const API_URL = "https://evoprimal-api.onrender.com/api";
 
   async function handleFinalizeOrder() {
     if (!user) return navigate("/login");
     
     setLoading(true);
-    console.log("🚀 [FRONT] Iniciando processo de checkout...");
+    console.log("🚀 [FRONT] Iniciando checkout real...");
 
     try {
-      // Tenta pegar o token com os nomes mais comuns (garantia)
+      // Pega o token de qualquer um dos possíveis nomes
       const token = localStorage.getItem("evo_token") || localStorage.getItem("token");
       
-      console.log("🔑 [FRONT] Token encontrado?", token ? "SIM" : "NÃO");
-
       if (!token) {
         alert("Sessão expirada. Faça login novamente.");
         navigate("/login");
         return;
       }
-      
-      const endpoint = `${API_URL}/orders/checkout`;
-      console.log("📡 [FRONT] Enviando requisição para:", endpoint);
 
-      const res = await fetch(endpoint, {
+      // Envia para o Backend
+      const res = await fetch(`${API_URL}/orders/checkout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -47,36 +42,35 @@ export default function CheckoutPage() {
         })
       });
 
-      console.log("📨 [FRONT] Status HTTP:", res.status);
+      // Lê a resposta (mesmo se for erro)
+      const data = await res.json();
+      console.log("📦 [FRONT] Resposta do servidor:", data);
 
-      // Lemos como texto primeiro para evitar crash se não for JSON (ex: erro 404 html)
-      const responseText = await res.text();
-      console.log("📦 [FRONT] Resposta bruta do servidor:", responseText);
-
-      if (!res.ok) {
-        throw new Error(`Erro do Servidor (${res.status}): ${responseText}`);
-      }
-
-      // Se chegou aqui, é JSON válido
-      const data = JSON.parse(responseText);
-
-      if (data.paymentUrl) {
-        console.log("✅ [FRONT] Redirecionando para:", data.paymentUrl);
+      if (res.ok && data.paymentUrl) {
+        // SUCESSO! Redireciona para o Asaas
+        console.log("✅ Redirecionando para:", data.paymentUrl);
         window.location.href = data.paymentUrl;
       } else {
-        alert("Erro: O Backend não retornou o link de pagamento.");
+        // ERRO DO BACKEND
+        throw new Error(data.error?.message || "Erro desconhecido ao gerar pagamento.");
       }
 
     } catch (error: any) {
-      console.error("❌ [FRONT] Erro Fatal:", error);
+      console.error("❌ [FRONT] Erro:", error);
       alert("Erro ao processar: " + error.message);
     } finally {
       setLoading(false);
     }
   }
 
+  // Se o usuário acessar direto pela URL com carrinho vazio
   if (cart.length === 0) {
-    return <div className="text-white text-center pt-40">Seu carrinho está vazio.</div>;
+    return (
+        <div className="min-h-screen bg-[#090909] pt-32 text-white flex flex-col items-center justify-center">
+            <h1 className="text-2xl font-bold mb-4">Seu carrinho está vazio.</h1>
+            <button onClick={() => navigate("/")} className="text-red-500 hover:underline">Voltar para a loja</button>
+        </div>
+    );
   }
 
   return (
@@ -85,16 +79,22 @@ export default function CheckoutPage() {
         <h1 className="text-3xl font-black uppercase mb-6 text-red-600">Resumo do Pedido</h1>
         
         {/* Lista de Itens */}
-        <div className="space-y-4 mb-8">
+        <div className="space-y-4 mb-8 max-h-60 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-800">
           {cart.map(item => (
             <div key={item.id} className="flex justify-between border-b border-white/5 pb-2">
-              <span>{item.quantity}x {item.name}</span>
+              <div className="flex gap-3">
+                  <div className="w-10 h-10 bg-zinc-800 rounded flex items-center justify-center text-xs">IMG</div>
+                  <div>
+                      <span className="block font-bold text-sm">{item.name}</span>
+                      <span className="text-xs text-zinc-500">Qtd: {item.quantity}</span>
+                  </div>
+              </div>
               <span className="font-bold">R$ {(item.price * item.quantity).toFixed(2)}</span>
             </div>
           ))}
         </div>
 
-        <div className="flex justify-between text-xl font-black mb-8">
+        <div className="flex justify-between text-xl font-black mb-8 border-t border-white/10 pt-4">
           <span>TOTAL</span>
           <span className="text-green-500">R$ {total.toFixed(2)}</span>
         </div>
@@ -102,8 +102,7 @@ export default function CheckoutPage() {
         {/* Dados do Cliente */}
         <div className="bg-zinc-900 p-4 rounded-lg mb-8 text-sm text-zinc-400">
             <p><strong className="text-white">Cliente:</strong> {user?.username || user?.email}</p>
-            {/* Adicione validação para não quebrar se cpf for null */}
-            <p><strong className="text-white">CPF:</strong> {user?.cpf || "Não cadastrado"}</p>
+            <p><strong className="text-white">CPF:</strong> {user?.cpf || <span className="text-red-500">Não informado (Necessário atualizar perfil)</span>}</p>
         </div>
 
         <button 
