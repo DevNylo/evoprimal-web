@@ -10,18 +10,32 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const BASE_ENV_URL = import.meta.env.VITE_API_URL || "https://evoprimal-api.onrender.com";
-  const API_URL = BASE_ENV_URL.endsWith("/api") ? BASE_ENV_URL : `${BASE_ENV_URL}/api`;
+  // ⚠️ AJUSTE CRÍTICO: Fixamos a URL correta do Render com /api no final
+  // Isso garante que não haja erro de montagem da URL
+  const API_URL = "https://evoprimal-api.onrender.com/api";
 
   async function handleFinalizeOrder() {
     if (!user) return navigate("/login");
     
     setLoading(true);
+    console.log("🚀 [FRONT] Iniciando processo de checkout...");
 
     try {
-      const token = localStorage.getItem("evo_token");
+      // Tenta pegar o token com os nomes mais comuns (garantia)
+      const token = localStorage.getItem("evo_token") || localStorage.getItem("token");
       
-      const res = await fetch(`${API_URL}/orders/checkout`, {
+      console.log("🔑 [FRONT] Token encontrado?", token ? "SIM" : "NÃO");
+
+      if (!token) {
+        alert("Sessão expirada. Faça login novamente.");
+        navigate("/login");
+        return;
+      }
+      
+      const endpoint = `${API_URL}/orders/checkout`;
+      console.log("📡 [FRONT] Enviando requisição para:", endpoint);
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -33,18 +47,29 @@ export default function CheckoutPage() {
         })
       });
 
-      const data = await res.json();
+      console.log("📨 [FRONT] Status HTTP:", res.status);
 
-      if (res.ok && data.paymentUrl) {
-        // Redireciona o usuário para o Asaas para pagar
-        window.location.href = data.paymentUrl;
-      } else {
-        alert("Erro ao criar pagamento: " + (data.error?.message || "Erro desconhecido"));
+      // Lemos como texto primeiro para evitar crash se não for JSON (ex: erro 404 html)
+      const responseText = await res.text();
+      console.log("📦 [FRONT] Resposta bruta do servidor:", responseText);
+
+      if (!res.ok) {
+        throw new Error(`Erro do Servidor (${res.status}): ${responseText}`);
       }
 
-    } catch (error) {
-      console.error(error);
-      alert("Erro de conexão.");
+      // Se chegou aqui, é JSON válido
+      const data = JSON.parse(responseText);
+
+      if (data.paymentUrl) {
+        console.log("✅ [FRONT] Redirecionando para:", data.paymentUrl);
+        window.location.href = data.paymentUrl;
+      } else {
+        alert("Erro: O Backend não retornou o link de pagamento.");
+      }
+
+    } catch (error: any) {
+      console.error("❌ [FRONT] Erro Fatal:", error);
+      alert("Erro ao processar: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -76,15 +101,15 @@ export default function CheckoutPage() {
 
         {/* Dados do Cliente */}
         <div className="bg-zinc-900 p-4 rounded-lg mb-8 text-sm text-zinc-400">
-            <p><strong className="text-white">Cliente:</strong> {user?.full_name}</p>
-            <p><strong className="text-white">CPF:</strong> {user?.cpf}</p>
-            <p><strong className="text-white">Endereço:</strong> {user?.street}, {user?.number} - {user?.neighborhood}</p>
+            <p><strong className="text-white">Cliente:</strong> {user?.username || user?.email}</p>
+            {/* Adicione validação para não quebrar se cpf for null */}
+            <p><strong className="text-white">CPF:</strong> {user?.cpf || "Não cadastrado"}</p>
         </div>
 
         <button 
           onClick={handleFinalizeOrder}
           disabled={loading}
-          className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase py-4 rounded-xl transition-all flex items-center justify-center gap-2"
+          className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase py-4 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? <Loader2 className="animate-spin" /> : <><DollarSign /> Ir para Pagamento</>}
         </button>
