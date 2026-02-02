@@ -92,7 +92,7 @@ export default function ContactPage() {
                         </div>
                         <div>
                             <h3 className="text-white font-bold uppercase">WhatsApp / Telefone</h3>
-                            <p className="text-zinc-400 text-sm mt-1">(11) 99999-9999</p>
+                            <p className="text-zinc-400 text-sm mt-1">(11) 99999-9999 (Em breve)</p>
                             <p className="text-zinc-500 text-xs mt-1">Seg a Sex das 09h às 18h</p>
                         </div>
                     </div>
@@ -104,7 +104,7 @@ export default function ContactPage() {
                         </div>
                         <div>
                             <h3 className="text-white font-bold uppercase">E-mail</h3>
-                            <p className="text-zinc-400 text-sm mt-1">suporte@evoprimal.com.br</p>
+                            <p className="text-zinc-400 text-sm mt-1">evoprimesuporte@gmail.com</p>
                             <p className="text-zinc-500 text-xs mt-1">Respondemos em até 24h</p>
                         </div>
                     </div>
@@ -116,7 +116,7 @@ export default function ContactPage() {
                         </div>
                         <div>
                             <h3 className="text-white font-bold uppercase">Escritório</h3>
-                            <p className="text-zinc-400 text-sm mt-1">Av. Paulista, 1000 - São Paulo/SP</p>
+                            <p className="text-zinc-400 text-sm mt-1">Em breve</p>
                             <p className="text-zinc-500 text-xs mt-1">Apenas administrativo</p>
                         </div>
                     </div>
