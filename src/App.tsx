@@ -11,7 +11,8 @@ import Home from './pages/Home';
 import ProductPage from './pages/ProductPage';
 import CategoryPage from './pages/CategoryPage';
 import OfferPage from './pages/OfferPage';
-import CheckoutPage from './pages/CheckoutPage'; // <--- IMPORTANTE: Importamos a página nova aqui
+import CheckoutPage from './pages/CheckoutPage';
+import ContactPage from './pages/ContactPage'; // <--- NOVO IMPORT
 
 // Páginas de Usuário e Autenticação
 import LoginPage from './pages/LoginPage';
@@ -49,9 +50,10 @@ function App() {
               <Route path="/produto/:id" element={<ProductPage />} />
               <Route path="/categoria/:slug" element={<CategoryPage />} />
               <Route path="/ofertas" element={<OfferPage />} />
-              
-              {/* <--- AQUI ESTÁ A CORREÇÃO: Adicionamos a rota do checkout */}
               <Route path="/checkout" element={<CheckoutPage />} />
+              
+              {/* <--- NOVA ROTA DE CONTATO */}
+              <Route path="/contato" element={<ContactPage />} />
 
               {/* Rotas de Autenticação */}
               <Route path="/login" element={<LoginPage />} />
