@@ -92,7 +92,7 @@ export default function ContactPage() {
                         </div>
                         <div>
                             <h3 className="text-white font-bold uppercase">WhatsApp / Telefone</h3>
-                            <p className="text-zinc-400 text-sm mt-1">(11) 99999-9999 (Em breve)</p>
+                            <p className="text-zinc-400 text-sm mt-1">Em breve</p>
                             <p className="text-zinc-500 text-xs mt-1">Seg a Sex das 09h às 18h</p>
                         </div>
                     </div>
