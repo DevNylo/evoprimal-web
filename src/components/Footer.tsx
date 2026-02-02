@@ -50,7 +50,7 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="text-red-600 shrink-0" size={18} />
-                <span>(11) 99999-9999 (Em breve)</span>
+                <span>Em breve</span>
               </li>
               <li className="text-xs text-zinc-500 mt-4">
                 Segunda a Sexta: 09h às 18h
